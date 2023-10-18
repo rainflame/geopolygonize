@@ -7,15 +7,15 @@ import numpy as np
 from tqdm import tqdm
 
 
-if not os.path.exists("data/landfire_vegetation_split"):
-    os.makedirs("data/landfire_vegetation_split")
+if not os.path.exists("data/temp"):
+    os.makedirs("data/temp")
 else:
     # delete the existing files and make it again
-    shutil.rmtree("data/landfire_vegetation_split")
-    os.makedirs("data/landfire_vegetation_split")
+    shutil.rmtree("data/temp")
+    os.makedirs("data/temp")
 
 # get the tif file from data/landfire_vegetation
-file = glob.glob('data/landfire_vegetation/*.tif')[0]
+file = glob.glob('data/sources/*.tif')[0]
 
 print("Splitting raster bands into individual files...")
 
@@ -35,7 +35,7 @@ with rasterio.open(file) as src:
         band1[band1 == value] = 255
 
         # save this band as a new rgba image
-        with rasterio.open("data/landfire_vegetation_split/{}.tif".format(int(value)), 'w', **meta) as dst:
+        with rasterio.open("data/temp/{}.tif".format(int(value)), 'w', **meta) as dst:
             dst.write_band(1, band1)
 
 print("Done!")

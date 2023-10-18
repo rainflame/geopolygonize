@@ -17,18 +17,18 @@ import lxml.html
 )
 def cli(bbox):
 
-    if not os.path.exists("data/landfire_vegetation"):
-        os.makedirs("data/landfire_vegetation")
+    if not os.path.exists("data/sources"):
+        os.makedirs("data/sources")
     else:
         # delete the existing files and make it again
-        shutil.rmtree("data/landfire_vegetation")
-        os.makedirs("data/landfire_vegetation")
+        shutil.rmtree("data/sources")
+        os.makedirs("data/sources")
         
     # get the layer values csv 
     print("Downloading layer values csv...")
     url = "https://landfire.gov/CSV/LF2022/LF22_EVT_230.csv"
     response = requests.get(url)
-    with open("data/landfire_vegetation/values.csv", "wb") as f:
+    with open("data/sources/values.csv", "wb") as f:
         f.write(response.content)
 
     print("Submitting job to Landfire API...")
@@ -98,7 +98,7 @@ def cli(bbox):
                             # dowload the zipfile
                             response = requests.get(zip_file)
                             # save the zipfile
-                            with open("data/landfire_vegetation.zip", "wb") as f:
+                            with open("data/sources/landfire_vegetation.zip", "wb") as f:
                                 f.write(response.content)
                         except Exception as e:
                             print("Failed to download zipfile")
@@ -108,8 +108,10 @@ def cli(bbox):
 
                         try: 
                             print("Unzipping zipfile...")
-                            with zipfile.ZipFile("data/landfire_vegetation.zip", "r") as zip_ref:
-                                zip_ref.extractall("data/landfire_vegetation")
+                            with zipfile.ZipFile("data/sources/landfire_vegetation.zip", "r") as zip_ref:
+                                zip_ref.extractall("data/sources")
+                            # delete the zipfile 
+                            os.remove("data/sources/landfire_vegetation.zip")
                         except Exception as e:
                             print("Failed to unzip zipfile")
                             print(e)
