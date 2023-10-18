@@ -4,6 +4,7 @@ import time
 import zipfile
 import json
 import os
+import shutil
 
 import lxml.html
 
@@ -18,6 +19,17 @@ def cli(bbox):
 
     if not os.path.exists("data/landfire_vegetation"):
         os.makedirs("data/landfire_vegetation")
+    else:
+        # delete the existing files and make it again
+        shutil.rmtree("data/landfire_vegetation")
+        os.makedirs("data/landfire_vegetation")
+        
+    # get the layer values csv 
+    print("Downloading layer values csv...")
+    url = "https://landfire.gov/CSV/LF2022/LF22_EVT_230.csv"
+    response = requests.get(url)
+    with open("data/landfire_vegetation/values.csv", "wb") as f:
+        f.write(response.content)
 
     print("Submitting job to Landfire API...")
 
