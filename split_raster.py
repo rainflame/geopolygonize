@@ -30,9 +30,9 @@ with rasterio.open(file) as src:
 
     for value in tqdm(band1_unique):
         band1 = src.read(1)
-        # set everything that's not this value to 0
+        # set everything that's not this value to white
         band1[band1 != value] = 0
-        band1[band1 == value] = 255
+        band1[band1 == value] = 1
 
         # save this band as a new rgba image
         with rasterio.open("data/temp/{}.tif".format(int(value)), 'w', **meta) as dst:

@@ -39,3 +39,11 @@ python split_raster.py
 Now you should have a series of tif files like `/data/temp/012345.tif`. Each represents a vegetation class. The csv at `/data/sources/values.csv` contains the class names.
 
 ### Polygonize and simplify
+
+Run the script to convert the rasters to polygons. Because each pixel of the raster is 30 meters these polygons will appear to have jagged edges. So we also need to simplify and smooth the polygons using the [Douglas-Peucker Algorithm](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm) and [Chaikin’s Algorithm](http://graphics.cs.ucdavis.edu/education/CAGDNotes/Chaikins-Algorithm/Chaikins-Algorithm.html), respectively.
+
+```
+python polygonize.py --workers=8 --simplification=20 --smoothing=5
+```
+
+Adjust the number of workers to process more rasters in parallel.
