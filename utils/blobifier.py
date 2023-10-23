@@ -152,7 +152,7 @@ def identify_blobs(raster):
     blobs = collect_blobs(blob_raster)
     return blobs
 
-def remove_small_blobs(original):
+def blobify(original):
     raster = original.copy()
 
     blobs = identify_blobs(raster)
@@ -167,14 +167,14 @@ def remove_small_blobs(original):
 
     return raster
 
-def remove_small_blobs_from_raster(input_filepath, output_filepath):
+def blobify_raster_file(input_filepath, output_filepath):
     band = 1
 
     with rasterio.open(input_filepath) as src:
         meta = src.meta
         original = src.read(band)
 
-    cleaned = remove_small_blobs(original)
+    cleaned = blobify(original)
 
     with rasterio.open(output_filepath, 'w', **meta) as dst:
         dst.write_band(band, cleaned)
