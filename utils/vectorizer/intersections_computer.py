@@ -1,8 +1,6 @@
 from shapely.geometry import LineString, Point
 from rtree import index
 
-from oriented_potential import OrientedPotential
-
 
 def make_index(all_loops):
     loop_idx = index.Index()
@@ -43,66 +41,44 @@ def handle(g):
         pass
     return pieces
 
-def get_sorted_oriented_potentials(loop, pieces):
-    oriented_potentials = []
-    for p in pieces:
-        oriented_potential = OrientedPotential(p, loop, loop)
-        oriented_potentials.append(oriented_potential)
-    oriented_potentials.sort(key=loop.potential_sort_key)
-    return oriented_potentials
-
-def get_sections(oriented_potentials):
-    sections = []
-    section = None
-    for i in range(len(oriented_potentials)):
-        op = oriented_potentials[i]
-        oriented_piece = op.get_oriented_segment()
-        
-        if i == 0:
-            section = [oriented_piece]
-        else:
-            prev_op = oriented_potentials[i-1]
-
-            if prev_op.is_prev(op):
-                section.append(oriented_piece)
-            else:
-                sections.append(section)
-                section = [oriented_piece]
-
-        if i == len(oriented_potentials) - 1:
-            first_op = oriented_potentials[0]
-            if op.is_prev(first_op) and len(sections) > 0:
-                first_section = sections[0]
-                sections[0] = section + first_section
-            else:
-                sections.append(section)
-    return sections
-
-def get_segments(sections):
-    segments = []
-    for s in sections:
-        line_coords = []
-        for l in s:
-            assert len(l.coords) == 2
-            line_coords.append(l.coords[0])
-        l = s[-1]
-        line_coords.append(l.coords[-1])
-
-        segment = LineString(line_coords)
-        segments.append(segment)
-    return segments
-
 def get_connected_segments(loop, pieces):
     if len(pieces) == 0: return []
+
+    start_map = {}
+    end_map = {}
     for p in pieces:
         assert len(p.coords) == 2, f"Expect each piece to have only two points."
+        start_map[Point(p.coords[0])] = p
+        end_map[Point(p.coords[-1])] = p
 
-    oriented_potentials = get_sorted_oriented_potentials(loop, pieces)
-    assert len(oriented_potentials) > 0, f"Expect at least one oriented potential."
-    sections = get_sections(oriented_potentials)
-    assert len(sections) > 0, f"Expect at least one section."
-    segments = get_segments(sections)
-    assert len(segments) > 0, f"Expect at least one section."
+    segments = []
+    unvisited = set(pieces)
+    while len(unvisited) > 0:
+        piece = unvisited.pop()
+        start = Point(piece.coords[0])
+        end = Point(piece.coords[-1])
+        
+        curr = start
+        former_section = [start]
+        while curr in end_map:
+            next_piece = end_map[curr]
+            curr = Point(next_piece.coords[0])
+            former_section.append(curr)
+            if not next_piece in unvisited: break # reached termination in former half of segment
+            unvisited.remove(next_piece)
+
+        curr = end
+        latter_section = [end]
+        while curr in start_map:
+            next_piece = start_map[curr]
+            curr = Point(next_piece.coords[-1])
+            latter_section.append(curr)
+            if not next_piece in unvisited: break # reached termination in latter half of segment
+            unvisited.remove(next_piece)
+        
+        segment = LineString(former_section[::-1] + latter_section)
+        segments.append(segment)
+    
     return segments
 
 def compute_intersections(all_loops):
