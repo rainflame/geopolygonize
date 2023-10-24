@@ -9,7 +9,7 @@ def get_positions(sort_key, length, points):
         position = sort_key(p)
         if i > 0 and position < positions[i-1]:
             position += length
-            assert position > positions[i-1]
+            assert position > positions[i-1], f"Expect current position to be greater than previous position."
         positions.append(position)
     return positions
 
@@ -25,7 +25,7 @@ def get_iterations(line, sort_key, length):
 
 def get_segments_helper(line, sort_key, length, cutpoints):
     positions = get_positions(sort_key, length, cutpoints)
-    assert len(positions) == len(cutpoints)
+    assert len(positions) == len(cutpoints), f"Expect the number of positions to be the same as the number of cutpoints."
     iterations = get_iterations(line, sort_key, length)
 
     segments = []
@@ -55,7 +55,6 @@ def get_relevant_cutpoints(loop, intersection):
 
     super_line = LineString(loop.cutpoints)
     super_segments = get_segments_helper(super_line, loop.point_sort_key, loop.line.length, [start, end])
-    assert len(super_segments) == 1
     super_segment = super_segments[0]
     
     relevant_cutpoints = [Point(c) for c in super_segment.coords]
@@ -63,6 +62,7 @@ def get_relevant_cutpoints(loop, intersection):
 
 def get_segments(loop, cutpoints):
     segments = get_segments_helper(loop.line, loop.point_sort_key, loop.line.length, cutpoints)
+    assert len(segments) == len(cutpoints) - 1, f"Expect number of segments to be one less than number of inputted cutpoints."
     return segments
 
 def get_oriented_potentials(segments, first_loop, second_loop, ref_loop):
@@ -96,6 +96,7 @@ def compute_remnant_oriented_potentials(all_loops):
         loop = all_loops[l]
         
         sections = [op.get_oriented_potential() for op in loop.oriented_potentials]
+        assert len(loop.cutpoints) > 0, f"Loop {l} should at least have its own start/end as a cutpoint."
         looping_cutpoints = loop.cutpoints + [loop.cutpoints[0]]
         remnants = []
         for j in range(len(looping_cutpoints)):
@@ -107,7 +108,6 @@ def compute_remnant_oriented_potentials(all_loops):
             if start == end: continue # TODO: Just do start == end check at beginning for simplicity.
 
             segments = get_segments(loop, [start, end])
-            assert len(segments) == 1
             segment = segments[0]
             op = OrientedPotential(segment, loop, loop)
             remnants.append(op)
@@ -127,7 +127,6 @@ def compute_split_oriented_potentials_for_whole_loops(all_loops):
             end = Point(loop.line.coords[-1])
 
             segments = get_segments(loop, [start, midpoint, end])
-            assert len(segments) == 2
 
             first_op = OrientedPotential(segments[0], loop, loop)
             second_op = OrientedPotential(segments[1], loop, loop)

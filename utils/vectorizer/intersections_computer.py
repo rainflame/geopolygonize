@@ -15,7 +15,7 @@ def line_string(ls):
     if len(ls.coords) < 2:
         return [] # invalid segment, effectively skip
     else:
-        assert len(ls.coords) == 2
+        assert len(ls.coords) == 2, f"Expect LineString from intersection to have only two points."
         return [ls]
 
 def multi_line_string(mls):
@@ -76,8 +76,6 @@ def get_sections(oriented_potentials):
                 sections[0] = section + first_section
             else:
                 sections.append(section)
-
-    assert len(sections) > 0
     return sections
 
 def get_segments(sections):
@@ -97,11 +95,14 @@ def get_segments(sections):
 def get_connected_segments(loop, pieces):
     if len(pieces) == 0: return []
     for p in pieces:
-        assert len(p.coords) == 2
+        assert len(p.coords) == 2, f"Expect each piece to have only two points."
 
     oriented_potentials = get_sorted_oriented_potentials(loop, pieces)
+    assert len(oriented_potentials) > 0, f"Expect at least one oriented potential."
     sections = get_sections(oriented_potentials)
+    assert len(sections) > 0, f"Expect at least one section."
     segments = get_segments(sections)
+    assert len(segments) > 0, f"Expect at least one section."
     return segments
 
 def compute_intersections(all_loops):

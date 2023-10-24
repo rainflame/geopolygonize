@@ -37,9 +37,6 @@ class OrientedPotential:
         start_pos = user_loop.point_sort_key(start)
         end_pos = user_loop.point_sort_key(end)
 
-        assert start_pos != end_pos
-        assert start_pos < end_pos
-
         test_point = None
         for c in user_loop.line.coords:
             pc = Point(c)
@@ -58,7 +55,7 @@ class OrientedPotential:
             start, end = end, start
             start_pos, end_pos = end_pos, start_pos
             end_pos += user_loop.line.length
-        assert start_pos < end_pos
+        assert start_pos < end_pos, f"Expect end to be further along the loop than the start."
 
         orientation = Orientation.FORWARD if e1 == start else Orientation.REVERSE
 
