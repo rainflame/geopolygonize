@@ -3,53 +3,50 @@ from shapely.geometry import LineString, Point
 from oriented_potential import OrientedPotential
 
 
-def get_pos(start, end, sort_key, length):
-    start_pos = sort_key(start)
-    end_pos = sort_key(end)
-    assert start_pos != end_pos
-    if start_pos > end_pos:
-        end_pos += length
-    return start_pos, end_pos
+def get_positions(sort_key, length, points):
+    positions = []
+    for i, p in enumerate(points):
+        position = sort_key(p)
+        if i > 0 and position < positions[i-1]:
+            position += length
+            assert position > positions[i-1]
+        positions.append(position)
+    return positions
 
-def get_iterations(line, sort_key):
+def get_iterations(line, sort_key, length):
     line_points = [Point(c) for c in line.coords]
     if line.is_ring:
         line_points = line_points[:-1]
     first_loop = [(p, sort_key(p)) for p in line_points]
-    second_loop = [(p, pos + line.length) for (p, pos) in first_loop]
+    second_loop = [(p, pos + length) for (p, pos) in first_loop]
     if line.is_ring:
-        second_loop.append((line_points[0], 2*line.length))
+        second_loop.append((line_points[0], 2*length))
     return first_loop + second_loop
 
-def get_points(iterations, start, end, start_pos, end_pos):
-    hit_start = False
-    points = []
-    for (p, pos) in iterations:
-        if hit_start == False:
-            if pos == start_pos:
-                hit_start = True
-                points.append(p)
-            elif pos > start_pos:
-                hit_start = True
-                points.append(start)
-                points.append(p)
-            else: pass
-        else:
-            if pos == end_pos:
-                points.append(p)
-                break
-            elif pos > end_pos:
-                points.append(end)
-                break
-            else: points.append(p)
-    return points
+def get_segments_helper(line, sort_key, length, cutpoints):
+    positions = get_positions(sort_key, length, cutpoints)
+    assert len(positions) == len(cutpoints)
+    iterations = get_iterations(line, sort_key, length)
 
-def get_segment(line, start, end, sort_key):
-    start_pos, end_pos = get_pos(start, end, sort_key, line.length)
-    iterations = get_iterations(line, sort_key)  
-    points = get_points(iterations, start, end, start_pos, end_pos) 
-    segment = LineString(points)
-    return segment
+    segments = []
+    segment_coords = None
+    cutpoint_idx = 0
+    for (p, pos) in iterations:
+        if cutpoint_idx == len(cutpoints): break
+
+        if pos < positions[cutpoint_idx]:
+            if segment_coords == None: continue
+            else: segment_coords.append(p)
+        else:
+            if segment_coords == None: segment_coords = []
+            while cutpoint_idx < len(cutpoints) and pos >= positions[cutpoint_idx]:
+                segment_coords.append(cutpoints[cutpoint_idx])
+                if cutpoint_idx > 0:
+                    segments.append(LineString(segment_coords))
+                    segment_coords = [cutpoints[cutpoint_idx]]
+                cutpoint_idx += 1
+
+    return segments
 
 # Get cutpoints to split intersection by.
 def get_relevant_cutpoints(loop, intersection):
@@ -57,32 +54,28 @@ def get_relevant_cutpoints(loop, intersection):
     start, end = oriented_intersection.get_oriented_potential()
 
     super_line = LineString(loop.cutpoints)
-    super_segment = get_segment(super_line, start, end, loop.point_sort_key)
+    super_segments = get_segments_helper(super_line, loop.point_sort_key, loop.line.length, [start, end])
+    assert len(super_segments) == 1
+    super_segment = super_segments[0]
     
     relevant_cutpoints = [Point(c) for c in super_segment.coords]
     return relevant_cutpoints
 
 def get_segments(loop, cutpoints):
-    segments = []
-    for j in range(len(cutpoints) - 1):
-        start = cutpoints[j]
-        end = cutpoints[j+1]
-        
-        segment = get_segment(loop.line, start, end, loop.point_sort_key)
-        segments.append(segment)
+    segments = get_segments_helper(loop.line, loop.point_sort_key, loop.line.length, cutpoints)
     return segments
 
-def set_oriented_potentials(segments, first_loop, second_loop, ref_loop):
+def get_oriented_potentials(segments, first_loop, second_loop, ref_loop):
+    pairs = []
     for segment in segments:
         op_curr = OrientedPotential(segment, first_loop, ref_loop)
-        first_loop.oriented_potentials.append(op_curr)
-
         op_other = OrientedPotential(segment, second_loop, ref_loop)
-        second_loop.oriented_potentials.append(op_other)
+        pairs.append((op_curr, op_other))
+    return pairs
 
 def compute_oriented_potentials_from_intersections(all_loops):
     for l in range(len(all_loops)):
-        curr_loop = all_loops[l]
+        curr_loop = all_loops[l] # acts as reference loop for oriented potentials
 
         for n, intersection_segments in curr_loop.intersections.items():
             if n <= l: continue # handled already
@@ -91,25 +84,11 @@ def compute_oriented_potentials_from_intersections(all_loops):
             for intersection_segment in intersection_segments:
                 rel_cutpoints = get_relevant_cutpoints(curr_loop, intersection_segment)
                 segments = get_segments(curr_loop, rel_cutpoints)
-                set_oriented_potentials(segments, curr_loop, other_loop, curr_loop)
+                pairs = get_oriented_potentials(segments, curr_loop, other_loop, curr_loop)
 
-def compute_split_oriented_potentials_for_whole_loops(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
-
-        if len(loop.oriented_potentials) == 0:
-            midpoint_idx = len(loop.line.coords) // 2
-
-            start = Point(loop.line.coords[0])
-            midpoint = Point(loop.line.coords[midpoint_idx])
-
-            first_segment = get_segment(loop.line, start, midpoint, loop.point_sort_key)
-            second_segment = get_segment(loop.line, midpoint, start, loop.point_sort_key)
-            
-            first_op = OrientedPotential(first_segment, loop, loop)
-            second_op = OrientedPotential(second_segment, loop, loop)
-            halves = [first_op, second_op]
-            loop.oriented_potentials = halves
+                for (curr_op, other_op) in pairs:
+                    curr_loop.oriented_potentials.append(curr_op)
+                    other_loop.oriented_potentials.append(other_op)
 
 def compute_remnant_oriented_potentials(all_loops):
     for l in range(len(all_loops)):
@@ -124,13 +103,34 @@ def compute_remnant_oriented_potentials(all_loops):
             end = looping_cutpoints[j]
 
             if (start, end) in sections: continue
-            if start == end: continue
+            if start == end: continue # TODO: Just do start == end check at beginning for simplicity.
 
-            segment = get_segment(loop.line, start, end, loop.point_sort_key)
+            segments = get_segments(loop, [start, end])
+            assert len(segments) == 1
+            segment = segments[0]
             op = OrientedPotential(segment, loop, loop)
             remnants.append(op)
 
         loop.oriented_potentials.extend(remnants)
+
+def compute_split_oriented_potentials_for_whole_loops(all_loops):
+    for l in range(len(all_loops)):
+        loop = all_loops[l]
+
+        if len(loop.oriented_potentials) == 0:
+            midpoint_idx = len(loop.line.coords) // 2
+
+            start = Point(loop.line.coords[0])
+            midpoint = Point(loop.line.coords[midpoint_idx])
+            end = Point(loop.line.coords[-1])
+
+            segments = get_segments(loop, [start, midpoint, end])
+            assert len(segments) == 2
+
+            first_op = OrientedPotential(segments[0], loop, loop)
+            second_op = OrientedPotential(segments[1], loop, loop)
+            halves = [first_op, second_op]
+            loop.oriented_potentials = halves
 
 def set_sorted_unique_oriented_potentials(all_loops):
     for l in range(len(all_loops)):
