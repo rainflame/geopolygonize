@@ -98,14 +98,15 @@ def compute_remnant_oriented_potentials(all_loops):
         sections = [op.get_oriented_potential() for op in loop.oriented_potentials]
         assert len(loop.cutpoints) > 0, f"Loop {l} should at least have its own start/end as a cutpoint."
         looping_cutpoints = loop.cutpoints + [loop.cutpoints[0]]
+        if len(looping_cutpoints) == 2 and looping_cutpoints[0] == looping_cutpoints[1]:
+            continue
+
         remnants = []
         for j in range(len(looping_cutpoints)):
             if j == 0: continue
             start = looping_cutpoints[j-1]
             end = looping_cutpoints[j]
-
             if (start, end) in sections: continue
-            if start == end: continue # TODO: Just do start == end check at beginning for simplicity.
 
             segments = get_segments(loop, [start, end])
             segment = segments[0]
