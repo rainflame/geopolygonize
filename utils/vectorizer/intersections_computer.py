@@ -120,6 +120,16 @@ def compute_intersections(all_loops):
             intersection_pieces = handle(intersection)
             intersection_segments = get_connected_segments(curr_loop, intersection_pieces)
             if len(intersection_segments) == 0: continue
+            
+            is_ring = False
+            for intersection_segment in intersection_segments:
+                if intersection_segment.is_ring: is_ring = True
 
-            curr_loop.intersections[n] = intersection_segments
-            other_loop.intersections[l] = intersection_segments
+            if is_ring:
+                assert len(intersection_segments) == 1, f"If the intersection with another loop is a ring, expect the ring to be the only intersection."
+                ring = intersection_segments[0]
+                curr_loop.ring_intersections[n] = ring
+                other_loop.ring_intersections[l] = ring
+            else:
+                curr_loop.intersections[n] = intersection_segments
+                other_loop.intersections[l] = intersection_segments

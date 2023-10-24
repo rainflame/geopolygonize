@@ -115,34 +115,6 @@ def compute_remnant_oriented_potentials(all_loops):
 
         loop.oriented_potentials.extend(remnants)
 
-def compute_split_oriented_potentials_for_whole_loops(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
-
-        if len(loop.oriented_potentials) == 0:
-
-            midpoint_idx = len(loop.line.coords) // 2
-
-            start = Point(loop.line.coords[0])
-            midpoint = Point(loop.line.coords[midpoint_idx])
-            end = Point(loop.line.coords[-1])
-
-            segments = get_segments(loop, [start, midpoint, end])
-
-            first_op = OrientedPotential(segments[0], loop, loop)
-            second_op = OrientedPotential(segments[1], loop, loop)
-            halves = [first_op, second_op]
-
-            for n, intersection_segments in loop.intersections.items():
-                for intersection_segment in intersection_segments:
-                    if intersection_segment.is_ring:
-                        if n < l:
-                            continue # already handled
-                        else:
-                            other_loop = all_loops[n]
-                            loop.oriented_potentials = halves
-                            other_loop.oriented_potentials = halves
-
 def set_sorted_unique_oriented_potentials(all_loops):
     for l in range(len(all_loops)):
         loop = all_loops[l]
@@ -170,5 +142,4 @@ def set_sorted_unique_oriented_potentials(all_loops):
 def compute_references(all_loops):
     compute_oriented_potentials_from_intersections(all_loops)
     compute_remnant_oriented_potentials(all_loops)
-    compute_split_oriented_potentials_for_whole_loops(all_loops)
     set_sorted_unique_oriented_potentials(all_loops)

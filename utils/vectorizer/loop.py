@@ -6,6 +6,7 @@ class Loop:
     def __init__(self, idx, loop):
         self.idx = idx
         self.line = LineString(loop.coords)
+        self.ring_intersections = {} # neighbor idx -> ring
         self.intersections = {} # neighbor idx -> intersection segments
         self.cutpoints = []
         # If N loops share an oriented potential,
