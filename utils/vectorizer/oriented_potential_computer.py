@@ -5,8 +5,7 @@ from references_computer import compute_references
 
 def update(oriented_potentials, function):
     for _key, op in oriented_potentials.items():
-        segment = op.segment
-        modified_segment = function(segment)
+        modified_segment = function(op.modified_segment)
         op.modified_segment = modified_segment
 
 def build(loops):
@@ -21,11 +20,3 @@ def build(loops):
             if loop.idx == op.reference:
                 oriented_potentials[op.get_key()] = op
     return oriented_potentials
-
-def rebuild(loops, oriented_potentials):
-    for l in range(len(loops)):
-        loop = loops[l]
-
-        for op in loop.oriented_potentials:
-            ref_op = oriented_potentials[op.get_key()]
-            op.modified_segment = ref_op.modified_segment

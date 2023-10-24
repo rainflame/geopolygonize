@@ -22,7 +22,9 @@ class OrientedPotential:
         self.positions = positions
         self.orientation = orientation
 
-        self.modified_segment = None
+        # Can iteratively apply as many operations,
+        # which will update this value based on its previous value.
+        self.modified_segment = self.segment
 
     def compute_orientation(self, user_loop):
         (e1, e2) = self.potential
@@ -89,3 +91,6 @@ class OrientedPotential:
         (_curr_start, curr_end) = self.get_oriented_potential()
         (other_start, _other_end) = other.get_oriented_potential()
         return curr_end == other_start
+    
+    def rebuild(self, ref_op):
+        self.modified_segment = ref_op.modified_segment

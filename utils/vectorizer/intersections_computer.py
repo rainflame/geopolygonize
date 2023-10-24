@@ -4,6 +4,13 @@ from rtree import index
 from oriented_potential import OrientedPotential
 
 
+def make_index(all_loops):
+    loop_idx = index.Index()
+    for i, loop in enumerate(all_loops):
+        bbox = loop.line.bounds
+        loop_idx.insert(i, bbox)
+    return loop_idx
+
 def line_string(ls):
     if len(ls.coords) < 2:
         return [] # invalid segment, effectively skip
@@ -36,18 +43,15 @@ def handle(g):
         pass
     return pieces
 
-def get_connected_segments(loop, pieces):
-    if len(pieces) == 0: return []
-    for p in pieces:
-        assert len(p.coords) == 2
-
+def get_sorted_oriented_potentials(loop, pieces):
     oriented_potentials = []
     for p in pieces:
         oriented_potential = OrientedPotential(p, loop, loop)
         oriented_potentials.append(oriented_potential)
     oriented_potentials.sort(key=loop.potential_sort_key)
+    return oriented_potentials
 
-    # Group together segments that are connected into sections.
+def get_sections(oriented_potentials):
     sections = []
     section = None
     for i in range(len(oriented_potentials)):
@@ -74,7 +78,9 @@ def get_connected_segments(loop, pieces):
                 sections.append(section)
 
     assert len(sections) > 0
-    
+    return sections
+
+def get_segments(sections):
     segments = []
     for s in sections:
         line_coords = []
@@ -88,38 +94,32 @@ def get_connected_segments(loop, pieces):
         segments.append(segment)
     return segments
 
-def compute_intersections(all_loops):
-    loop_idx = index.Index()
+def get_connected_segments(loop, pieces):
+    if len(pieces) == 0: return []
+    for p in pieces:
+        assert len(p.coords) == 2
 
-    for i, loop in enumerate(all_loops):
-        bbox = loop.line.bounds
-        loop_idx.insert(i, bbox)
+    oriented_potentials = get_sorted_oriented_potentials(loop, pieces)
+    sections = get_sections(oriented_potentials)
+    segments = get_segments(sections)
+    return segments
+
+def compute_intersections(all_loops):
+    loop_idx = make_index(all_loops)
 
     for l in range(len(all_loops)):
         curr_loop = all_loops[l]
-        curr_line = curr_loop.line
         
-        for o in loop_idx.intersection(curr_line.bounds):
-            if o == l: continue
-            if o < l: continue # handled already
-            other_loop = all_loops[o]
+        for n in loop_idx.intersection(curr_loop.line.bounds):
+            if n == l: continue
+            if n < l: continue # handled already
+            other_loop = all_loops[n]
 
-            other_line = other_loop.line
-            intersection = curr_line.intersection(other_line)
-                
+            intersection = curr_loop.line.intersection(other_loop.line)
             intersection_pieces = handle(intersection)
-
             intersection_segments = get_connected_segments(curr_loop, intersection_pieces)
             if len(intersection_segments) == 0: continue
             if len(intersection_segments) == 1 and intersection_segments[0].is_ring: continue
 
-            curr_loop.intersections[o] = intersection_segments
+            curr_loop.intersections[n] = intersection_segments
             other_loop.intersections[l] = intersection_segments
-
-            other_start = Point(other_loop.line.coords[0])
-            on_curr_loop = curr_loop.on_loop(other_start)
-            if on_curr_loop: curr_loop.cutpoints.append(other_start)
-            
-            curr_start = Point(curr_loop.line.coords[0])
-            on_other_loop = other_loop.on_loop(curr_start)
-            if on_other_loop: other_loop.cutpoints.append(curr_start)

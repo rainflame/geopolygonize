@@ -26,16 +26,7 @@ def build(covers):
 
     return all_loops
 
-def rebuild(loops):
+def rebuild(loops, oriented_potentials):
     for l in range(len(loops)):
         loop = loops[l]
-
-        segments = []
-        for op in loop.oriented_potentials:
-            segment = op.get_oriented_modified_segment()
-            segments.append(segment)
-        
-        modified_line = LineString([c for s in segments for c in s.coords[:-1]] + [segments[-1].coords[-1]])
-        loop.modified_line = modified_line
-
-    return loops
+        loop.rebuild(oriented_potentials)

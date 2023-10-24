@@ -1,13 +1,27 @@
 from shapely.geometry import Point
 
 
-def compute_cutpoints(all_loops):
+def get_cutpoints_from_neighbor_start_points(all_loops):
+    for l in range(len(all_loops)):
+        curr_loop = all_loops[l]
+        for n in curr_loop.intersections:
+            other_loop = all_loops[n]
+
+            other_start = Point(other_loop.line.coords[0])
+            on_curr_loop = curr_loop.on_loop(other_start)
+            if on_curr_loop: curr_loop.cutpoints.append(other_start)
+            
+            curr_start = Point(curr_loop.line.coords[0])
+            on_other_loop = other_loop.on_loop(curr_start)
+            if on_other_loop: other_loop.cutpoints.append(curr_start)
+
+def get_cutpoints_from_intersection_endpoints(all_loops):
     for l in range(len(all_loops)):
         loop = all_loops[l]
         loop_start_end = Point(loop.line.coords[0])
 
         cutpoints = [loop_start_end]
-        for n, intersection_segments in loop.intersections.items():
+        for _n, intersection_segments in loop.intersections.items():
             for intersection_segment in intersection_segments:
                 start = Point(intersection_segment.coords[0])
                 end = Point(intersection_segment.coords[-1])
@@ -15,9 +29,13 @@ def compute_cutpoints(all_loops):
         
         loop.cutpoints.extend(cutpoints)
 
+def set_sorted_unique_cutpoints(all_loops):
     for l in range(len(all_loops)):
         loop = all_loops[l]
         loop.cutpoints = list(set(loop.cutpoints))
         loop.cutpoints.sort(key=loop.point_sort_key)
 
-    return all_loops
+def compute_cutpoints(all_loops):
+    get_cutpoints_from_neighbor_start_points(all_loops)
+    get_cutpoints_from_intersection_endpoints(all_loops)
+    set_sorted_unique_cutpoints(all_loops)

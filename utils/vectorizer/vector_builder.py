@@ -34,8 +34,7 @@ class VectorBuilder:
         opc.update(self.oriented_potentials, per_segment_function)
     
     def rebuild(self):
-        opc.rebuild(self.loops, self.oriented_potentials)
-        lc.rebuild(self.loops)
+        lc.rebuild(self.loops, self.oriented_potentials)
         cc.rebuild(self.covers, self.loops)
 
     def save(self, output_filepath):

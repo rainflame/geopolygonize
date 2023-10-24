@@ -1,5 +1,5 @@
 from rasterio.features import shapes
-from shapely.geometry import shape, Polygon
+from shapely.geometry import shape
 
 from cover import Cover
 
@@ -14,5 +14,4 @@ def rebuild(covers, loops):
         cover = covers[c]
         exterior = loops[cover.exterior_idx].modified_line
         interiors = [loops[i].modified_line for i in cover.interior_idxes]
-        modified_polygon = Polygon(exterior, interiors)
-        cover.modified_polygon = modified_polygon
+        cover.rebuild(exterior, interiors)
