@@ -1,23 +1,6 @@
 from shapely.geometry import LineString, Point
+from rtree import index
 
-
-def is_along_line(line, point):
-    start = Point(line.coords[0])
-    end = Point(line.coords[-1])
-    return point.intersects(line) or point.equals(start) or point.equals(end)
-
-def get_distance(line, point):
-    key = (line, point)
-
-    distance = 0
-    for i in range(len(line.coords) - 1):
-        segment = LineString([line.coords[i], line.coords[i + 1]])
-        if is_along_line(segment, point):
-            distance += segment.project(point)
-            break
-        else:
-            distance += segment.length
-    return distance
 
 class Loop:
     def __init__(self, idx, loop):
@@ -25,7 +8,6 @@ class Loop:
         self.line = LineString(loop.coords)
         self.intersections = {} # neighbor idx -> intersection segments
         self.cutpoints = []
-        self.sort_cache = {}
         # If N loops share an oriented potential,
         # the reference associated with the oriented potential
         # will be the one with the lowest idx.
@@ -34,15 +16,49 @@ class Loop:
         # with all N loops.
         self.oriented_potentials = []
 
+        self.setup_sort_cache()
+
         self.modified_line = None
+
+    def setup_sort_cache(self):
+        self.sort_cache = {}
+
+        start = Point(self.line.coords[0])
+        self.cumulative_distances = {start: 0}
+        for i in range(1, len(self.line.coords) - 1):
+            seg_start = Point(self.line.coords[i-1])
+            seg_end = Point(self.line.coords[i])
+            segment = LineString([seg_start, seg_end])
+            self.cumulative_distances[seg_end] = self.cumulative_distances[seg_start] + segment.length
+        # end is same as beginning
+        
+        self.seg_idx = index.Index()
+        for i in range(len(self.line.coords) - 1):
+            segment = LineString([self.line.coords[i], self.line.coords[i + 1]])
+            bbox = segment.bounds
+            self.seg_idx.insert(i, bbox)
     
     def on_loop(self, point):
-        return is_along_line(self.line, point)
+        start = Point(self.line.coords[0])
+        end = Point(self.line.coords[-1])
+        return point.intersects(self.line) or point.equals(start) or point.equals(end)
     
     def point_sort_key(self, point):
         if point in self.sort_cache:
             return self.sort_cache[point]
-        distance = get_distance(self.line, point)
+        
+        if point in self.cumulative_distances:
+            distance = self.cumulative_distances[point]
+        else:
+            s_idxes = list(self.seg_idx.intersection(point.bounds))
+            if len(s_idxes) == 0: raise Exception('Point is not in line as expected.')
+            if len(s_idxes) > 1: raise Exception('Point is not between just two line coordinates as expected.')
+            s_idx = s_idxes[0]
+            seg_start = Point(self.line.coords[s_idx])
+            seg_end = Point(self.line.coords[s_idx + 1])
+            segment = LineString([seg_start, seg_end])
+            distance = self.cumulative_distances[seg_start] + segment.project(point)
+
         self.sort_cache[point] = distance
         return distance
     

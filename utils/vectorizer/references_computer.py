@@ -142,12 +142,12 @@ def set_sorted_unique_oriented_potentials(all_loops):
             if j == 0:
                 reference_oriented_potentials.append(op)
             else:
-                (curr_start, _curr_end) = op.get_oriented_potential()
+                (curr_start, curr_end) = op.get_oriented_potential()
 
                 prev_op = loop.oriented_potentials[j-1]
-                (_prev_start, prev_end) = prev_op.get_oriented_potential()
+                (prev_start, prev_end) = prev_op.get_oriented_potential()
 
-                if op == prev_op:
+                if (curr_start, curr_end) == (prev_start, prev_end):
                     continue
                 elif curr_start == prev_end:
                     reference_oriented_potentials.append(op)
