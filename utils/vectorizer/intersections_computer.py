@@ -119,7 +119,6 @@ def compute_intersections(all_loops):
             intersection_pieces = handle(intersection)
             intersection_segments = get_connected_segments(curr_loop, intersection_pieces)
             if len(intersection_segments) == 0: continue
-            if len(intersection_segments) == 1 and intersection_segments[0].is_ring: continue
 
             curr_loop.intersections[n] = intersection_segments
             other_loop.intersections[l] = intersection_segments

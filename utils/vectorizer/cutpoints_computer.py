@@ -23,6 +23,7 @@ def get_cutpoints_from_intersection_endpoints(all_loops):
         cutpoints = [loop_start_end]
         for _n, intersection_segments in loop.intersections.items():
             for intersection_segment in intersection_segments:
+                if intersection_segment.is_ring: continue
                 start = Point(intersection_segment.coords[0])
                 end = Point(intersection_segment.coords[-1])
                 cutpoints.extend([start, end])
