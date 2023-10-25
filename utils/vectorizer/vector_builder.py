@@ -35,7 +35,7 @@ class VectorBuilder:
     
     def rebuild(self):
         lc.rebuild(self.loops, self.oriented_potentials)
-        cc.rebuild(self.covers, self.loops)
+        cc.rebuild(self.covers)
 
     def save(self, output_filepath):
         modified_polygons = [c.modified_polygon for c in self.covers]

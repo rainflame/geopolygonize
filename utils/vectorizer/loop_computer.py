@@ -11,17 +11,17 @@ def build(covers):
         cover = covers[c]
 
         exterior_idx = loop_count
-        exterior = [Loop(exterior_idx, cover.polygon.exterior)]
-        loop_count += len(exterior)
+        exterior = Loop(exterior_idx, cover.polygon.exterior)
+        loop_count += 1
 
         interior_idxes = list(range(loop_count, loop_count + len(cover.polygon.interiors)))
         interiors = [Loop(interior_idxes[i], l) for i, l in enumerate(cover.polygon.interiors)]
         loop_count += len(cover.polygon.interiors)
 
-        cover.exterior_idx = exterior_idx
-        cover.interior_idxes = interior_idxes
+        cover.exterior = exterior
+        cover.interiors = interiors
 
-        loops = [l for l in exterior + interiors]
+        loops = [l for l in [exterior] + interiors]
         all_loops.extend(loops)
 
     return all_loops

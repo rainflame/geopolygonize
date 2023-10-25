@@ -6,11 +6,11 @@ class Cover:
         self.polygon = polygon
         self.label = label
         
-        self.exterior_idx = None
-        self.interior_idxes = []
+        self.exterior = None
+        self.interiors = []
 
         self.modified_polygon = None
 
-    def rebuild(self, exterior, interiors):
-        modified_polygon = Polygon(exterior, interiors)
+    def rebuild(self):
+        modified_polygon = Polygon(self.exterior.modified_line, [interior.modified_line for interior in self.interiors])
         self.modified_polygon = modified_polygon
