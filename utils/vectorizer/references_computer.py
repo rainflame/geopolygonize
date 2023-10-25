@@ -7,7 +7,7 @@ def get_positions(sort_key, length, points):
     positions = []
     for i, p in enumerate(points):
         position = sort_key(p)
-        if i > 0 and position < positions[i-1]:
+        if i > 0 and position <= positions[i-1]:
             position += length
             assert position > positions[i-1], f"Expect current position to be greater than previous position."
         positions.append(position)

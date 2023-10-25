@@ -71,7 +71,15 @@ class Loop:
         return distance
     
     def get_segment_idx_and_reverse(self, start, end, line):
-        if len(self.segments) == 2:
+        if len(self.segments) == 1:
+            if (start, end) in self.segment_map:
+                assert start == end
+                seg_idx = self.segment_map[(start, end)]
+                assert seg_idx == 0
+                reverse = False
+            else:
+                raise Exception("Could not find segment idx for given start and end points.")
+        elif len(self.segments) == 2:
             first_seg_idx = self.segment_map[(start, end)]
             first_segment = self.segments[first_seg_idx]
             second_seg_idx = self.segment_map[(end, start)]

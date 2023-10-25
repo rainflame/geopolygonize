@@ -30,35 +30,13 @@ def use_cutpoints_from_intersection_endpoints(all_loops):
         
         loop.cutpoints.extend(cutpoints)
 
-def use_midpoint_as_cutpoint_for_uncut_loops(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
-
-        assert len(loop.cutpoints) > 0, f"Expect loop to have at least start/end as cutpoint."
-        if len(loop.cutpoints) == 1:
-            reference = min([n for n in loop.ring_intersections] + [l])
-            if reference != l: continue # already handled
-            
-            midpoint_idx = len(loop.line.coords) // 2
-            midpoint = Point(loop.line.coords[midpoint_idx])
-            loop.cutpoints.append(midpoint)
-
-            start = Point([loop.line.coords[0]])
-
-            for n in loop.ring_intersections:
-                other_loop = all_loops[n]
-                other_loop.cutpoints.append(midpoint)
-                assert start in other_loop.cutpoints # from previous step
-
 def set_sorted_unique_cutpoints(all_loops):
     for l in range(len(all_loops)):
         loop = all_loops[l]
         loop.cutpoints = list(set(loop.cutpoints))
-        assert len(loop.cutpoints) >= 2, f"Expect loop to have at least two cutpoints."
         loop.cutpoints.sort(key=loop.point_sort_key)
 
 def compute_cutpoints(all_loops):
     use_cutpoints_from_neighbor_start_points(all_loops)
     use_cutpoints_from_intersection_endpoints(all_loops)
-    use_midpoint_as_cutpoint_for_uncut_loops(all_loops)
     set_sorted_unique_cutpoints(all_loops)
