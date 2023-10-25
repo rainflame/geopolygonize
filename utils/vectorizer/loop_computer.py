@@ -1,5 +1,3 @@
-from shapely.geometry import LineString
-
 from loop import Loop
 
     
@@ -26,7 +24,7 @@ def build(covers):
 
     return all_loops
 
-def rebuild(loops, oriented_potentials):
+def rebuild(loops):
     for l in range(len(loops)):
         loop = loops[l]
-        loop.rebuild(oriented_potentials)
+        loop.rebuild()

@@ -6,18 +6,14 @@ class Loop:
     def __init__(self, idx, loop):
         self.idx = idx
         self.line = LineString(loop.coords)
-        self.ring_intersections = {} # neighbor idx -> ring
-        self.intersections = {} # neighbor idx -> intersection segments
-        self.cutpoints = []
-        # If N loops share an oriented potential,
-        # the reference associated with the oriented potential
-        # will be the one with the lowest idx.
-        # This allows us to perform processing on its associated segment 
-        # once and only once and share the result of that processing 
-        # with all N loops.
-        self.oriented_potentials = []
-
         self.setup_sort_cache()
+        self.setup_temporary_variables()
+
+        # If N loops share a segment, the reference loop is the loop with the min idx.
+        # We can perform non-deterministic processing on the segment once and only once,
+        # therefore ensuring no gaps appear between loops that share the segment.
+        self.segment_map = {}
+        self.segments = []
 
         self.modified_line = None
 
@@ -39,6 +35,17 @@ class Loop:
             bbox = segment.bounds
             self.seg_idx.insert(i, bbox)
     
+    def setup_temporary_variables(self):
+        self.ring_intersections = {} # neighbor idx -> ring
+        self.intersections = {} # neighbor idx -> intersection segments
+        
+        # Cutpoints are points that define the endpoints of the segments.
+        # If loops A and B share an intersection, they are expected to have
+        # all the same cutpoints between them.
+        # Will be sorted before use.
+        self.cutpoints = []
+        self.segment_idx_to_neighbors = None
+
     def on_loop(self, point):
         start = Point(self.line.coords[0])
         end = Point(self.line.coords[-1])
@@ -63,20 +70,48 @@ class Loop:
         self.sort_cache[point] = distance
         return distance
     
-    def potential_sort_key(self, op):
-        (start_pos, _end_pos) = op.get_positions()
-        reference = op.reference
-        return (start_pos, reference)
-    
-    def rebuild(self, oriented_potentials):
-        for op in self.oriented_potentials:
-            ref_op = oriented_potentials[op.get_key()]
-            op.rebuild(ref_op)
+    def get_segment_idx_and_reverse(self, start, end, line):
+        if len(self.segments) == 2:
+            first_seg_idx = self.segment_map[(start, end)]
+            first_segment = self.segments[first_seg_idx]
+            second_seg_idx = self.segment_map[(end, start)]
+            second_segment = self.segments[second_seg_idx]
+            reverse_line = LineString(line.coords[::-1])
 
-        segments = []
-        for op in self.oriented_potentials:
-            segment = op.get_oriented_modified_segment()
-            segments.append(segment)
+            if first_segment.line.equals(line):
+                seg_idx = first_seg_idx
+                reverse = False
+            elif first_segment.line.equals(reverse_line):
+                seg_idx = first_seg_idx
+                reverse = True
+            elif second_segment.line.equals(line):
+                seg_idx = second_seg_idx
+                reverse = True
+            elif second_segment.line.equals(reverse_line):
+                seg_idx = second_seg_idx
+                reverse = False
+            else:
+                raise Exception("Could not find segment idx for given start and end points and line.")
+        else:
+            if (start, end) in self.segment_map:
+                seg_idx = self.segment_map[(start, end)]
+                reverse = False
+            elif (end, start) in self.segment_map:
+                seg_idx = self.segment_map[(end, start)]
+                reverse = True
+            else: raise Exception("Could not find segment idx for given start and end points.")
+
+        return seg_idx, reverse
         
-        modified_line = LineString([c for s in segments for c in s.coords[:-1]] + [segments[-1].coords[-1]])
+    def get_segment(self, start, end):
+        seg_idx = self.segment_map[(start, end)]
+        return self.segments[seg_idx]
+    
+    def rebuild(self):
+        segments = []
+        for segment in self.segments:
+            segment.rebuild()
+            segments.append(segment.modified_line)
+        
+        modified_line = LineString([c for segment in segments for c in segment.coords[:-1]] + [segments[-1].coords[-1]])
         self.modified_line = modified_line

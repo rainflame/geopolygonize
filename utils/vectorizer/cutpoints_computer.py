@@ -54,8 +54,6 @@ def set_sorted_unique_cutpoints(all_loops):
     for l in range(len(all_loops)):
         loop = all_loops[l]
         loop.cutpoints = list(set(loop.cutpoints))
-        if len(loop.cutpoints) < 2:
-            print("LOOP", l)
         assert len(loop.cutpoints) >= 2, f"Expect loop to have at least two cutpoints."
         loop.cutpoints.sort(key=loop.point_sort_key)
 

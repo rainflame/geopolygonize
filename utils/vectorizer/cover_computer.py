@@ -5,7 +5,7 @@ from cover import Cover
 
 
 def build(data, transform):
-    shapes_gen = shapes(data, transform=transform)   
+    shapes_gen = shapes(data, transform=transform)
     all_covers = [Cover(shape(s), v) for s, v in shapes_gen]
     return all_covers
 

@@ -8,7 +8,7 @@ vectorizer_dir = os.path.dirname(__file__)
 sys.path.append(vectorizer_dir)
 import cover_computer as cc
 import loop_computer as lc
-import oriented_potential_computer as opc
+import segments_computer as sc
 
 
 class VectorBuilder:
@@ -22,19 +22,18 @@ class VectorBuilder:
             self.meta = src.meta
             self.data = src.read(1)
             self.transform = src.transform
-
-        #self.data = self.data[10:60, 60:120]
+        #self.data = self.data[45:55, 95:110]
 
     def build(self):
         self.covers = cc.build(self.data, self.transform)
         self.loops = lc.build(self.covers)
-        self.oriented_potentials = opc.build(self.loops)
+        self.segments = sc.build(self.loops)
 
     def run_per_segment(self, per_segment_function):
-        opc.update(self.oriented_potentials, per_segment_function)
+        sc.update(self.segments, per_segment_function)
     
     def rebuild(self):
-        lc.rebuild(self.loops, self.oriented_potentials)
+        lc.rebuild(self.loops)
         cc.rebuild(self.covers)
 
     def save(self, output_filepath):

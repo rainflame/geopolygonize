@@ -41,7 +41,7 @@ def handle(g):
         pass
     return pieces
 
-def get_connected_segments(loop, pieces):
+def get_connected_segments(pieces):
     if len(pieces) == 0: return []
 
     start_map = {}
@@ -61,20 +61,24 @@ def get_connected_segments(loop, pieces):
         curr = start
         former_section = [start]
         while curr in end_map:
-            next_piece = end_map[curr]
-            curr = Point(next_piece.coords[0])
+            prev_piece = end_map[curr]
+            curr = Point(prev_piece.coords[0])
             former_section.append(curr)
-            if not next_piece in unvisited: break # reached termination in former half of segment
-            unvisited.remove(next_piece)
+            if not prev_piece in unvisited: break # reached termination in former half of segment
+            unvisited.remove(prev_piece)
 
-        curr = end
-        latter_section = [end]
-        while curr in start_map:
-            next_piece = start_map[curr]
-            curr = Point(next_piece.coords[-1])
-            latter_section.append(curr)
-            if not next_piece in unvisited: break # reached termination in latter half of segment
-            unvisited.remove(next_piece)
+        is_ring = len(former_section) > 2 and Point(former_section[-1]) == start
+        if is_ring:
+            latter_section = []
+        else:
+            curr = end
+            latter_section = [end]
+            while curr in start_map:
+                next_piece = start_map[curr]
+                curr = Point(next_piece.coords[-1])
+                latter_section.append(curr)
+                if not next_piece in unvisited: break # reached termination in latter half of segment
+                unvisited.remove(next_piece)
         
         segment = LineString(former_section[::-1] + latter_section)
         segments.append(segment)
@@ -94,7 +98,8 @@ def compute_intersections(all_loops):
 
             intersection = curr_loop.line.intersection(other_loop.line)
             intersection_pieces = handle(intersection)
-            intersection_segments = get_connected_segments(curr_loop, intersection_pieces)
+            
+            intersection_segments = get_connected_segments(intersection_pieces)
             if len(intersection_segments) == 0: continue
             
             is_ring = False

@@ -1,6 +1,6 @@
 from shapely.geometry import LineString, Point
 
-from oriented_potential import OrientedPotential
+from segment import Segment
 
 
 def get_positions(sort_key, length, points):
@@ -44,14 +44,31 @@ def get_segments_helper(line, sort_key, length, cutpoints):
                 if cutpoint_idx > 0:
                     segments.append(LineString(segment_coords))
                     segment_coords = [cutpoints[cutpoint_idx]]
+                    if pos > positions[cutpoint_idx] and pos < positions[cutpoint_idx+1]:
+                        segment_coords.append(p)
                 cutpoint_idx += 1
 
     return segments
 
+def get_segments(loop, cutpoints):
+    segments = get_segments_helper(loop.line, loop.point_sort_key, loop.line.length, cutpoints)
+    assert len(segments) == len(cutpoints) - 1, f"Expect number of segments to be one less than number of inputted cutpoints."
+    return segments
+
+def compute_segments_per_loop(all_loops):
+    for l in range(len(all_loops)):
+        loop = all_loops[l]
+
+        cutpoints_with_end = loop.cutpoints + [loop.cutpoints[0]]
+        segment_lines = get_segments(loop, cutpoints_with_end)
+        loop.segments = [Segment(loop, sl) for sl in segment_lines]
+        assert len(loop.cutpoints) == len(loop.segments), f"Expect number of segments to equal number of cutpoints."
+        loop.segment_map = {(s.start, s.end): i for i, s in enumerate(loop.segments)}
+
 # Get cutpoints to split intersection by.
 def get_relevant_cutpoints(loop, intersection):
-    oriented_intersection = OrientedPotential(intersection, loop, loop)
-    start, end = oriented_intersection.get_oriented_potential()
+    start = Point(intersection.coords[0])
+    end = Point(intersection.coords[-1])
 
     super_line = LineString(loop.cutpoints)
     super_segments = get_segments_helper(super_line, loop.point_sort_key, loop.line.length, [start, end])
@@ -60,86 +77,50 @@ def get_relevant_cutpoints(loop, intersection):
     relevant_cutpoints = [Point(c) for c in super_segment.coords]
     return relevant_cutpoints
 
-def get_segments(loop, cutpoints):
-    segments = get_segments_helper(loop.line, loop.point_sort_key, loop.line.length, cutpoints)
-    assert len(segments) == len(cutpoints) - 1, f"Expect number of segments to be one less than number of inputted cutpoints."
-    return segments
-
-def get_oriented_potentials(segments, first_loop, second_loop, ref_loop):
-    pairs = []
-    for segment in segments:
-        op_curr = OrientedPotential(segment, first_loop, ref_loop)
-        op_other = OrientedPotential(segment, second_loop, ref_loop)
-        pairs.append((op_curr, op_other))
-    return pairs
-
-def compute_oriented_potentials_from_intersections(all_loops):
+def compute_loops_per_segment(all_loops):
     for l in range(len(all_loops)):
-        curr_loop = all_loops[l] # acts as reference loop for oriented potentials
+        curr_loop = all_loops[l]
+        curr_loop.segment_idx_to_neighbors = [[(l, curr_loop.segments[i], False)] for i in range(len(curr_loop.segments))]
+
+    for l in range(len(all_loops)):
+        curr_loop = all_loops[l]
+
+        for n in curr_loop.ring_intersections:
+            if n <= l: continue
+            other_loop = all_loops[n]
+            cutpoints_with_end = curr_loop.cutpoints + [curr_loop.cutpoints[0]]
+            for i in range(len(cutpoints_with_end)-1):
+                start = cutpoints_with_end[i]
+                end = cutpoints_with_end[i+1]
+                segment = curr_loop.get_segment(start, end)
+
+                other_seg_idx, reverse = other_loop.get_segment_idx_and_reverse(start, end, segment.line)
+                other_loop.segment_idx_to_neighbors[other_seg_idx].append((l, segment, reverse))
 
         for n, intersection_segments in curr_loop.intersections.items():
             if n <= l: continue # handled already
             other_loop = all_loops[n]
 
             for intersection_segment in intersection_segments:
-                if intersection_segment.is_ring: continue
                 rel_cutpoints = get_relevant_cutpoints(curr_loop, intersection_segment)
-                segments = get_segments(curr_loop, rel_cutpoints)
-                pairs = get_oriented_potentials(segments, curr_loop, other_loop, curr_loop)
+                
+                for i in range(len(rel_cutpoints)-1):
+                    start = rel_cutpoints[i]
+                    end = rel_cutpoints[i+1]
+                    segment = curr_loop.get_segment(start, end)
 
-                for (curr_op, other_op) in pairs:
-                    curr_loop.oriented_potentials.append(curr_op)
-                    other_loop.oriented_potentials.append(other_op)
+                    other_seg_idx, reverse = other_loop.get_segment_idx_and_reverse(start, end, segment.line)
+                    other_loop.segment_idx_to_neighbors[other_seg_idx].append((l, segment, reverse))
 
-def compute_remnant_oriented_potentials(all_loops):
+def compute_reference_per_segment(all_loops):
     for l in range(len(all_loops)):
         loop = all_loops[l]
         
-        sections = [op.get_oriented_potential() for op in loop.oriented_potentials]
-        assert len(loop.cutpoints) > 0, f"Loop {l} should at least have its own start/end as a cutpoint."
-        looping_cutpoints = loop.cutpoints + [loop.cutpoints[0]]
-        if len(looping_cutpoints) == 2 and looping_cutpoints[0] == looping_cutpoints[1]:
-            continue
-
-        remnants = []
-        for j in range(len(looping_cutpoints)):
-            if j == 0: continue
-            start = looping_cutpoints[j-1]
-            end = looping_cutpoints[j]
-            if (start, end) in sections: continue
-
-            segments = get_segments(loop, [start, end])
-            segment = segments[0]
-            op = OrientedPotential(segment, loop, loop)
-            remnants.append(op)
-
-        loop.oriented_potentials.extend(remnants)
-
-def set_sorted_unique_oriented_potentials(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
-        loop.oriented_potentials.sort(key=loop.potential_sort_key)
-
-        reference_oriented_potentials = []
-        for j, op in enumerate(loop.oriented_potentials):
-            if j == 0:
-                reference_oriented_potentials.append(op)
-            else:
-                (curr_start, curr_end) = op.get_oriented_potential()
-
-                prev_op = loop.oriented_potentials[j-1]
-                (prev_start, prev_end) = prev_op.get_oriented_potential()
-
-                if (curr_start, curr_end) == (prev_start, prev_end):
-                    continue
-                elif curr_start == prev_end:
-                    reference_oriented_potentials.append(op)
-                else:
-                    raise Exception("Potential is neither connected nor equal to former potential")
-        
-        loop.oriented_potentials = reference_oriented_potentials
+        for i, nps in enumerate(loop.segment_idx_to_neighbors):
+            _reference_idx, reference_segment, reverse = min(nps, key=lambda x: x[0])
+            loop.segments[i].set_reference(reference_segment, reverse)
 
 def compute_references(all_loops):
-    compute_oriented_potentials_from_intersections(all_loops)
-    compute_remnant_oriented_potentials(all_loops)
-    set_sorted_unique_oriented_potentials(all_loops)
+    compute_segments_per_loop(all_loops)
+    compute_loops_per_segment(all_loops)
+    compute_reference_per_segment(all_loops)
