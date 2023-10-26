@@ -22,7 +22,6 @@ class VectorBuilder:
             self.meta = src.meta
             self.data = src.read(1)
             self.transform = src.transform
-        #self.data = self.data[45:55, 95:110]
 
     def build(self):
         self.covers = cc.build(self.data, self.transform)

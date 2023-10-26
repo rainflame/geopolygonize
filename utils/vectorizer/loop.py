@@ -12,6 +12,9 @@ class Loop:
         # If N loops share a segment, the reference loop is the loop with the min idx.
         # We can perform non-deterministic processing on the segment once and only once,
         # therefore ensuring no gaps appear between loops that share the segment.
+        # Even deterministic processing may output different results for the same segment
+        # oriented differently (start and end being the same versus reversed).
+        # Segments are oriented based on where they exist along the loop.
         self.segment_map = {}
         self.segments = []
 
