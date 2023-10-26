@@ -1,8 +1,8 @@
-import rasterio
-import geopandas as gpd
-
 import os
 import sys
+
+import rasterio
+import geopandas as gpd
 
 vectorizer_dir = os.path.dirname(__file__)
 sys.path.append(vectorizer_dir)

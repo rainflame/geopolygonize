@@ -1,8 +1,9 @@
+from tqdm import tqdm
 from collections import deque
 
 import numpy as np
-
 import rasterio
+
 
 MIN_BLOB_SIZE = 5
 
@@ -109,7 +110,7 @@ def fill_blob(raster, blob):
 
 def collect_blobs(blob_raster):
     blobs = {}
-    for x in range(blob_raster.shape[0]):
+    for x in tqdm(range(blob_raster.shape[0]), desc="Collecting blobs"):
         for y in range(blob_raster.shape[1]):
             blob = blob_raster[x, y]
             blobs[blob] = blobs.get(blob, set()).union(set([(x, y)]))
@@ -137,7 +138,7 @@ def identify_blobs_by_pixel(raster):
                         queue.append((i + dx, j + dy))
 
     label = 1
-    for i in range(blob_raster.shape[0]):
+    for i in tqdm(range(blob_raster.shape[0]), desc="Identifying blobs by pixel"):
         for j in range(blob_raster.shape[1]):
             if blob_raster[i, j] == 0:
                 bfs((i, j), raster[i, j], label)
@@ -157,12 +158,16 @@ def blobify(original):
 
     blobs = identify_blobs(raster)
 
-    small_blobs = [blob_pixels for (_blob_id, blob_pixels) in blobs.items() if len(blob_pixels) < MIN_BLOB_SIZE]
+    small_blobs = [
+        blob_pixels \
+            for (_blob_id, blob_pixels) in tqdm(blobs.items(), desc="Filtering for small blobs") \
+            if len(blob_pixels) < MIN_BLOB_SIZE
+    ]
 
-    for blob in small_blobs:
+    for blob in tqdm(small_blobs, desc="Erasing small blobs"):
         raster = negate_blob(raster, blob)
 
-    for blob in small_blobs:
+    for blob in tqdm(small_blobs, desc="Filling small blobs with new color"):
         raster = fill_blob(raster, blob.copy())
 
     return raster
