@@ -102,7 +102,7 @@ class Tiler:
     def stitch_tiles(self):
         tp = self.tiler_parameters
         all_gdfs = []
-        for filepath in glob.glob(os.path.join(tp.temp_dir, "*.shp")):
+        for filepath in tqdm(glob.glob(os.path.join(tp.temp_dir, "*.shp")), desc="Stitching tiles"):
             gdf = gpd.read_file(filepath)
             all_gdfs.append(gdf)
         output_gdf = pd.concat(all_gdfs)
