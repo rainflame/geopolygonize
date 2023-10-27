@@ -169,15 +169,3 @@ def blobify(original, min_blob_size=5):
         raster = fill_blob(raster, blob.copy())
 
     return raster
-
-def blobify_raster_file(input_filepath, output_filepath, min_blob_size):
-    band = 1
-
-    with rasterio.open(input_filepath) as src:
-        meta = src.meta
-        original = src.read(band)
-
-    cleaned = blobify(original, min_blob_size)
-
-    with rasterio.open(output_filepath, 'w', **meta) as dst:
-        dst.write_band(band, cleaned)

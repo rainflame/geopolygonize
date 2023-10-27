@@ -1,9 +1,6 @@
 import os
 import sys
 
-import rasterio
-import geopandas as gpd
-
 vectorizer_dir = os.path.dirname(__file__)
 sys.path.append(vectorizer_dir)
 import area_computer as ac
@@ -12,16 +9,10 @@ import segments_computer as sc
 
 
 class VectorBuilder:
-    def __init__(self, raster_filepath):
-        self.raster_filepath = raster_filepath
-        self.get_data_and_transform()
+    def __init__(self, data, transform):
+        self.data = data
+        self.transform = transform
         self.build()
-
-    def get_data_and_transform(self):
-        with rasterio.open(self.raster_filepath,) as src:
-            self.meta = src.meta
-            self.data = src.read(1)
-            self.transform = src.transform
 
     def build(self):
         self.areas = ac.build(self.data, self.transform)
@@ -35,12 +26,7 @@ class VectorBuilder:
         lc.rebuild(self.loops)
         ac.rebuild(self.areas)
 
-    def save(self, output_filepath):
+    def get_result(self):
         modified_polygons = [c.modified_polygon for c in self.areas]
         labels = [c.label for c in self.areas]
-        crs = self.meta['crs']
-
-        gdf = gpd.GeoDataFrame(geometry=modified_polygons)
-        gdf['label'] = labels
-        gdf.crs = crs
-        gdf.to_file(output_filepath)
+        return modified_polygons, labels
