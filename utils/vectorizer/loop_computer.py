@@ -1,5 +1,3 @@
-from tqdm import tqdm
-
 from loop import Loop
 
     
@@ -7,7 +5,7 @@ def build(areas):
     all_loops = []
     loop_count = 0
 
-    for i in tqdm(range(len(areas)), desc="Building loops"):
+    for i in range(len(areas)):
         area = areas[i]
 
         exterior = Loop(loop_count, area.polygon.exterior)
@@ -24,6 +22,6 @@ def build(areas):
     return all_loops
 
 def rebuild(loops):
-    for l in tqdm(range(len(loops)), desc="Rebuilding loops"):
+    for l in range(len(loops)):
         loop = loops[l]
         loop.rebuild()

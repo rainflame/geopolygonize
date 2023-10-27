@@ -1,10 +1,8 @@
-from tqdm import tqdm
-
 from shapely.geometry import Point
 
 
 def use_cutpoints_from_neighbor_start_points(all_loops):
-    for l in tqdm(range(len(all_loops)), desc="Computing neighbor cutpoints along loop"):
+    for l in range(len(all_loops)):
         curr_loop = all_loops[l]
         for n in curr_loop.intersections:
             other_loop = all_loops[n]
@@ -18,7 +16,7 @@ def use_cutpoints_from_neighbor_start_points(all_loops):
             if on_other_loop: other_loop.cutpoints.append(curr_start)
 
 def use_cutpoints_from_intersection_endpoints(all_loops):
-    for l in tqdm(range(len(all_loops)), desc="Computing intersection cutpoints along loop"):
+    for l in range(len(all_loops)):
         loop = all_loops[l]
         loop_start_end = Point(loop.line.coords[0])
 
@@ -33,7 +31,7 @@ def use_cutpoints_from_intersection_endpoints(all_loops):
         loop.cutpoints.extend(cutpoints)
 
 def set_sorted_unique_cutpoints(all_loops):
-    for l in tqdm(range(len(all_loops)), desc="Sorting cutpoints along loop"):
+    for l in range(len(all_loops)):
         loop = all_loops[l]
         loop.cutpoints = list(set(loop.cutpoints))
         loop.cutpoints.sort(key=loop.point_sort_key)

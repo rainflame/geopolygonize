@@ -1,5 +1,3 @@
-from tqdm import tqdm
-
 from shapely.geometry import LineString, Point
 
 from segment import Segment
@@ -58,7 +56,7 @@ def get_segments(loop, cutpoints):
     return segments
 
 def compute_segments_per_loop(all_loops):
-    for l in tqdm(range(len(all_loops)), desc="Computing segments per loop"):
+    for l in range(len(all_loops)):
         loop = all_loops[l]
 
         cutpoints_with_end = loop.cutpoints + [loop.cutpoints[0]]
@@ -80,7 +78,7 @@ def get_relevant_cutpoints(loop, intersection):
     return relevant_cutpoints
 
 def compute_loops_per_segment(all_loops):
-    for l in tqdm(range(len(all_loops)), desc="Computing loops per segment"):
+    for l in range(len(all_loops)):
         curr_loop = all_loops[l]
         curr_loop.segment_idx_to_neighbors = [[(l, curr_loop.segments[i], False)] for i in range(len(curr_loop.segments))]
 
@@ -115,7 +113,7 @@ def compute_loops_per_segment(all_loops):
                     other_loop.segment_idx_to_neighbors[other_seg_idx].append((l, segment, reverse))
 
 def compute_reference_per_segment(all_loops):
-    for l in tqdm(range(len(all_loops)), desc="Computing reference per segment"):
+    for l in range(len(all_loops)):
         loop = all_loops[l]
         
         for i, nps in enumerate(loop.segment_idx_to_neighbors):

@@ -57,11 +57,14 @@ def fill_blobs(original, mask):
         blob_raster = result
     return blob_raster
 
-def blobify(original, min_blob_size=5):
-    print("Identifying blobs...")
+def blobify(original, min_blob_size=5, debug=False):
+    if debug:
+        print("Identifying blobs...")
     blob_raster = identify_blobs(original)
-    print("Masking small blobs...")
+    if debug:
+        print("Masking small blobs...")
     small_blob_mask = mask_small_blobs(blob_raster, min_blob_size)
-    print("Filling small blobs...")
+    if debug:
+        print("Filling small blobs...")
     cleaned_raster = fill_blobs(original, small_blob_mask)
     return cleaned_raster

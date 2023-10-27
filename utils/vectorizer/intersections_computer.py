@@ -1,5 +1,3 @@
-from tqdm import tqdm
-
 from shapely.geometry import LineString, Point
 from rtree import index
 
@@ -90,7 +88,7 @@ def get_connected_segments(pieces):
 def compute_intersections(all_loops):
     loop_idx = make_index(all_loops)
 
-    for l in tqdm(range(len(all_loops)), desc="Computing loop intersections"):
+    for l in range(len(all_loops)):
         curr_loop = all_loops[l]
         
         for n in loop_idx.intersection(curr_loop.line.bounds):
