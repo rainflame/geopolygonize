@@ -1,7 +1,9 @@
 
 import glob
 import os
+import multiprocessing  as mp
 import sys
+from tqdm import tqdm
 
 import rasterio
 import pandas as pd
@@ -16,12 +18,14 @@ class TilerParameters:
     def __init__(
         self,
         temp_dir=os.path.join("data", "intermediates"),
+        num_processes=1,
         debug=False,
         startx=0,
         starty=0,
         tile_size=100,
     ):
         self.temp_dir = temp_dir
+        self.num_processes = num_processes
 
         self.tile_size = tile_size
         self.startx = startx
@@ -76,16 +80,25 @@ class Tiler:
         ]
         return all_tile_args
 
-    # TODO: This is parallelizable.
+    @staticmethod
+    def process_tile_wrapper(args):
+        tile_args, process_tile, tiler_parameters, processer_parameters = args
+        if tiler_parameters.debug:
+            print(f"Tile args: {tile_args}")
+        process_tile(tile_args, tiler_parameters, processer_parameters)
+        if tiler_parameters.debug:
+            print()
+
     def process_tiles(self, all_tile_args):
         tp = self.tiler_parameters
-        for tile_args in all_tile_args:
-            if tp.debug:
-                print(f"Tile args: {tile_args}")
-            self.process_tile(tile_args, self.tiler_parameters, self.processer_parameters)
-            if tp.debug:
-                print()
-
+        all_args = [
+            (tile_args, self.process_tile, self.tiler_parameters, self.processer_parameters)
+            for tile_args in all_tile_args
+        ]
+        with mp.Pool(processes=tp.num_processes) as pool:
+            for _ in tqdm(pool.imap_unordered(self.process_tile_wrapper, all_args), total=len(all_args), desc="Processing tiles"):
+                pass
+            
     def stitch_tiles(self):
         tp = self.tiler_parameters
         all_gdfs = []

@@ -28,7 +28,7 @@ python download_landcover_data.py --bbox='-124.566244,46.864746,-116.463504,41.9
 
 ## Convert raster data to vectors
 
-The raster file represents each vegetation class as a different value in the first band. To turn the raster file a shape-file of `shapely.Polygon` vectors, follow `demo.ipynb`. This script will do the following:
+The raster file represents each vegetation class as a different value in the first band. To turn the raster file a shape-file of `shapely.Polygon` vectors, run `demo.py`. This script will do the following:
 
 1. Remove small blobs of each vegetation class from the raster file,
 2. Vectorize the remaining blobs by using the [iterative end-point fit simplification algorithm](https://en.wikipedia.org/wiki/Ramer%E2%80%93Douglas%E2%80%93Peucker_algorithm) on their boundaries,
