@@ -6,7 +6,7 @@ import geopandas as gpd
 
 vectorizer_dir = os.path.dirname(__file__)
 sys.path.append(vectorizer_dir)
-import cover_computer as cc
+import area_computer as ac
 import loop_computer as lc
 import segments_computer as sc
 
@@ -24,8 +24,8 @@ class VectorBuilder:
             self.transform = src.transform
 
     def build(self):
-        self.covers = cc.build(self.data, self.transform)
-        self.loops = lc.build(self.covers)
+        self.areas = ac.build(self.data, self.transform)
+        self.loops = lc.build(self.areas)
         self.segments = sc.build(self.loops)
 
     def run_per_segment(self, per_segment_function):
@@ -33,11 +33,11 @@ class VectorBuilder:
     
     def rebuild(self):
         lc.rebuild(self.loops)
-        cc.rebuild(self.covers)
+        ac.rebuild(self.areas)
 
     def save(self, output_filepath):
-        modified_polygons = [c.modified_polygon for c in self.covers]
-        labels = [c.label for c in self.covers]
+        modified_polygons = [c.modified_polygon for c in self.areas]
+        labels = [c.label for c in self.areas]
         crs = self.meta['crs']
 
         gdf = gpd.GeoDataFrame(geometry=modified_polygons)

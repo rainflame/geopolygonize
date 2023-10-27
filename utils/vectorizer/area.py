@@ -1,7 +1,7 @@
 from shapely.geometry import Polygon
 
 
-class Cover:
+class Area:
     def __init__(self, polygon, label):
         self.polygon = polygon
         self.label = label

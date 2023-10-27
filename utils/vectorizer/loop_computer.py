@@ -3,21 +3,21 @@ from tqdm import tqdm
 from loop import Loop
 
     
-def build(covers):
+def build(areas):
     all_loops = []
     loop_count = 0
 
-    for c in tqdm(range(len(covers)), desc="Building loops"):
-        cover = covers[c]
+    for i in tqdm(range(len(areas)), desc="Building loops"):
+        area = areas[i]
 
-        exterior = Loop(loop_count, cover.polygon.exterior)
+        exterior = Loop(loop_count, area.polygon.exterior)
         loop_count += 1
 
-        interiors = [Loop(loop_count + i, l) for i, l in enumerate(cover.polygon.interiors)]
-        loop_count += len(cover.polygon.interiors)
+        interiors = [Loop(loop_count + j, l) for j, l in enumerate(area.polygon.interiors)]
+        loop_count += len(area.polygon.interiors)
 
-        cover.exterior = exterior
-        cover.interiors = interiors
+        area.exterior = exterior
+        area.interiors = interiors
 
         all_loops.extend([exterior] + interiors)
 

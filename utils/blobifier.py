@@ -5,8 +5,6 @@ import numpy as np
 import rasterio
 
 
-MIN_BLOB_SIZE = 5
-
 # Get the eight neighbors of a pixel.
 def get_neighbors(pixel):
     (x, y) = pixel
@@ -153,7 +151,7 @@ def identify_blobs(raster):
     blobs = collect_blobs(blob_raster)
     return blobs
 
-def blobify(original):
+def blobify(original, min_blob_size=5):
     raster = original.copy()
 
     blobs = identify_blobs(raster)
@@ -161,7 +159,7 @@ def blobify(original):
     small_blobs = [
         blob_pixels \
             for (_blob_id, blob_pixels) in tqdm(blobs.items(), desc="Filtering for small blobs") \
-            if len(blob_pixels) < MIN_BLOB_SIZE
+            if len(blob_pixels) < min_blob_size
     ]
 
     for blob in tqdm(small_blobs, desc="Erasing small blobs"):
@@ -172,14 +170,14 @@ def blobify(original):
 
     return raster
 
-def blobify_raster_file(input_filepath, output_filepath):
+def blobify_raster_file(input_filepath, output_filepath, min_blob_size):
     band = 1
 
     with rasterio.open(input_filepath) as src:
         meta = src.meta
         original = src.read(band)
 
-    cleaned = blobify(original)
+    cleaned = blobify(original, min_blob_size)
 
     with rasterio.open(output_filepath, 'w', **meta) as dst:
         dst.write_band(band, cleaned)
