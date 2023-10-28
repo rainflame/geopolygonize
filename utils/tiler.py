@@ -17,7 +17,7 @@ import visualization as viz
 class TilerParameters:
     def __init__(
         self,
-        temp_dir=os.path.join("data", "intermediates"),
+        temp_dir=os.path.join("data", "temp"),
         num_processes=1,
         debug=False,
         startx=0,
