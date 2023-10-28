@@ -25,7 +25,7 @@ class VectorizerParameters:
 def clean(tile, tiler_parameters, parameters):
     cleaned = blobify(tile, parameters.min_blob_size, tiler_parameters.debug)
     if tiler_parameters.debug:
-        viz.show_raster(cleaned, *parameters.render_raster_config)
+        viz.show_raster(cleaned, *tiler_parameters.render_raster_config)
     return cleaned
 
 def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
@@ -70,6 +70,12 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     by0 = max(start_y-buffer, 0)
     bx1 = min(bx0+width+2*buffer, tiler_parameters.endx)
     by1 = min(by0+height+2*buffer, tiler_parameters.endy)
+
+    # empty tile
+    if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
+        return gpd.GeoDataFrame()
+    
+    # print(f"[{start_x}:{start_x+width}, {start_y}:{start_y+height}] -> [{bx0+buffer}:{bx1-buffer}, {by0+buffer}:{by1-buffer}]")
 
     tile_raster = tiler_parameters.data[bx0:bx1, by0:by1]
     cleaned = clean(tile_raster, tiler_parameters, parameters)
