@@ -4,6 +4,16 @@
 
 Here we create vector landcover tiles from [USGS Landfire](https://landfire.gov/index.php) landcover classification. These are considerably more detailed than the landcover tiles you'll get from OpenStreetMap or the [National Land Cover Database](https://www.usgs.gov/centers/eros/science/national-land-cover-database). Landfire uses the [U.S. National Vegetation Classification System](https://usnvc.org/), and includes around 1,000 different vegetation classes.
 
+## Install
+
+Ensure you've [activated the conda environment](../../README.md#building-datasets).
+
+Create the data directories:
+
+```
+mkdir -p data/sources/ && mkdir -p data/temp/ && mkdir -p data/output/
+```
+
 ## Download landcover data
 
 Run this script to download raster data from Landfire for a particular bounding box to `data/sources/`:
