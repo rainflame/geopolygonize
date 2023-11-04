@@ -10,8 +10,8 @@ from utils.tiler import Tiler, TilerParameters
 warnings.filterwarnings("ignore", category=RuntimeWarning) 
 
 @click.command()
-@click.option('--input-file', required=True, help='Input tiff file')
-@click.option('--output-file', required=True, help='Output shapefile')
+@click.option('--input-file', default="data/sources/*.tif", help='Input tif file')
+@click.option('--output-file', default="data/temp/combined.shp", help='Output shapefile')
 @click.option('--min-blob-size', default=30, help='The minimum number of pixels with the same value. Blobs smaller than this will be filtered out and replaced.')
 @click.option('--meters-per-pixel', default=30, help='The pixel size in meters')
 @click.option('--tile-size', default=200, help='Tile size in pixels')
