@@ -71,11 +71,8 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     bx1 = min(bx0+width+2*buffer, tiler_parameters.endx)
     by1 = min(by0+height+2*buffer, tiler_parameters.endy)
 
-    # empty tile
     if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
         return gpd.GeoDataFrame()
-    
-    # print(f"[{start_x}:{start_x+width}, {start_y}:{start_y+height}] -> [{bx0+buffer}:{bx1-buffer}, {by0+buffer}:{by1-buffer}]")
 
     tile_raster = tiler_parameters.data[bx0:bx1, by0:by1]
     cleaned = clean(tile_raster, tiler_parameters, parameters)
@@ -91,6 +88,5 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     shift_y = -((bx0 + buffer) * parameters.meters_per_pixel)
     gdf['geometry'] = gdf['geometry'].apply(lambda geom: translate(geom, xoff=shift_x, yoff=shift_y))
     gdf.crs = tiler_parameters.crs
-    
     gdf.to_file(os.path.join(tiler_parameters.temp_dir, f"tile-{start_x}-{start_y}.shp"))
     return gdf
