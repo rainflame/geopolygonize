@@ -40,6 +40,75 @@ python clean_and_vectorize_raster.py --min-blob-size=20 --tile-size=300
 
 ## Tile landcover vectors
 
+Finally, create the tiled `pmtiles` archive:
+
 ```
 ./tile_landcover.sh
+```
+
+## Styling
+
+The `landcover` layer contains features with a property `label`. The label corresponds to the values found in `data/input/values.csv`. To make it easier to assign colors, pull out the annotations for the region you've created:
+
+```
+python landcover_classes_to_json.py
+```
+
+Which should yield a json with the labels and their landcover class annotations `data/output/classes.json`:
+
+```json
+{
+    {
+    "7125.0": {
+        "name": "Inter-Mountain Basins Big Sagebrush Steppe",
+        "class": "Shrubland",
+        "subclass": "Mixed evergreen-deciduous shrubland",
+        "color": "#bbd1b8"
+    },
+    "9309.0": {
+        "name": "Great Basin & Intermountain Introduced Perennial Grassland and Forbland",
+        "class": "Herbaceous - grassland",
+        "subclass": "Perennial graminoid grassland",
+        "color": "#bbd1b8"
+    },
+    "7153.0": {
+        "name": "Inter-Mountain Basins Greasewood Flat",
+        "class": "Shrubland",
+        "subclass": "Evergreen shrubland",
+        "color": "#bbd1b8"
+    },
+    "7127.0": {
+        "name": "Inter-Mountain Basins Semi-Desert Shrub-Steppe",
+        "class": "Shrubland",
+        "subclass": "Mixed evergreen-deciduous shrubland",
+        "color": "#bbd1b8"
+    }
+}
+```
+
+Now you can choose colors based on the features' name, class or subclass. Once you have the colors, they can be rendered in Maplibre-gl with a spec like this:
+
+```json
+ {
+    id: "landcover",
+    type: "fill",
+    source: "basemap",
+    "source-layer": "landcover",
+    paint: {
+      "fill-color": [
+        "match",
+        ["get", "label"],
+        7125.0,
+        "#a8b7a5",
+        9309.0,
+        "#99b594",
+        7153.0,
+        "#c1beb0",
+        7127.0,
+        "#97a88b",
+        "#c4debf", // default for other labels
+      ],
+      "fill-opacity": 0.55,
+    },
+  },
 ```
