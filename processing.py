@@ -1,14 +1,17 @@
 import os
+import sys
 
 from shapely.geometry import LineString
 from shapely.affinity import translate
 import geopandas as gpd
 
-from simplification.cutil import simplify_coords
-
 import utils.visualization as viz
 from utils.blobifier import blobify
 from utils.vectorizer.vector_builder import VectorBuilder
+
+curr_dir = os.path.dirname(__file__)
+sys.path.append(os.path.join(curr_dir, "..", "..", "utils"))
+from simplify import simplify_geometry
 
 
 class VectorizerParameters:
@@ -38,12 +41,12 @@ def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
             midpoint_idx = len(segment.coords) // 2
             segment1 = LineString(segment.coords[:midpoint_idx+1])
             segment2 = LineString(segment.coords[midpoint_idx:])
-            simplified_coords1 = simplify_coords(segment1.coords, tolerance)
-            simplified_coords2 = simplify_coords(segment2.coords, tolerance)
-            simplified = LineString(simplified_coords1[:-1] + simplified_coords2)
+            simplified1 = simplify_geometry(segment1, tolerance)
+            simplified2 = simplify_geometry(segment2, tolerance)
+            coords = list(simplified1.coords)[::-1] + list(simplified2.coords)
+            simplified = LineString(coords)
         else:
-            simplified_coords = simplify_coords(segment.coords, tolerance)
-            simplified = LineString(simplified_coords)
+            simplified = simplify_geometry(segment, tolerance)
         return simplified
     return simplify
 
