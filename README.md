@@ -35,7 +35,7 @@ To speed up the computation, we first split the raster into tiles (whose size in
 To convert the raster to simplified polygons, run:
 
 ```
-python clean_and_vectorize_raster.py --min-blob-size=20 --tile-size=300
+python clean_and_vectorize_raster.py
 ```
 
 ## Tile landcover vectors
