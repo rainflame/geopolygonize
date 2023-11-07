@@ -71,8 +71,8 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     buffer = parameters.min_blob_size - 1
     bx0 = max(start_x-buffer, 0)
     by0 = max(start_y-buffer, 0)
-    bx1 = min(bx0+width+2*buffer, tiler_parameters.endx)
-    by1 = min(by0+height+2*buffer, tiler_parameters.endy)
+    bx1 = min(start_x+width+buffer, tiler_parameters.endx)
+    by1 = min(start_y+height+buffer, tiler_parameters.endy)
 
     if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
         return gpd.GeoDataFrame()
