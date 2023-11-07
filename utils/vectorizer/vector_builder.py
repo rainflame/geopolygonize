@@ -5,7 +5,7 @@ vectorizer_dir = os.path.dirname(__file__)
 sys.path.append(vectorizer_dir)
 import area_computer as ac
 import loop_computer as lc
-import segments_computer as sc
+import segment_computer as sc
 
 
 class VectorBuilder:
