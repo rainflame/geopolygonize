@@ -47,7 +47,7 @@ def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
             segment2 = LineString(segment.coords[midpoint_idx:])
             simplified1 = simplify_geometry(segment1, tolerance)
             simplified2 = simplify_geometry(segment2, tolerance)
-            coords = list(simplified1.coords)[::-1] + list(simplified2.coords)
+            coords = list(simplified1.coords)[:-1] + list(simplified2.coords)
             simplified = LineString(coords)
         else:
             simplified = simplify_geometry(segment, tolerance)
