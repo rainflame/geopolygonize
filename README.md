@@ -19,7 +19,8 @@ mkdir -p data/sources/ && mkdir -p data/temp/ && mkdir -p data/output/
 Run this script to download raster data from Landfire for a particular bounding box to `data/sources/`:
 
 ```
-python download_vegetation_data.py --bbox="-123.417224,43.022586,-118.980589,45.278084"
+python download_vegetation_data.py \
+  --bbox="-123.417224,43.022586,-118.980589,45.278084"
 ```
 
 ## Convert raster data to vectors
