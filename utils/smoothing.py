@@ -1,10 +1,11 @@
 import numpy as np
 
+
 # https://stackoverflow.com/a/47255374
 def chaikins_corner_cutting(coords, refinements=5):
     if not coords or len(coords) == 0:
         return coords
-    
+
     coords = np.array(coords)
 
     for _ in range(refinements):

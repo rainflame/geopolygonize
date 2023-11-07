@@ -30,7 +30,7 @@ class VectorBuilder:
         if self.debug:
             print("Running per-segment function...")
         sc.update(self.segments, per_segment_function)
-    
+
     def rebuild(self):
         if self.debug:
             print("Rebuilding loops...")

@@ -1,8 +1,6 @@
 import click
 
 import geopandas as gpd
-from descartes import PolygonPatch
-import matplotlib.pyplot as plt
 
 import utils.visualization as viz
 

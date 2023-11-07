@@ -16,6 +16,7 @@ def build(loops):
                 segments.append(segment)
     return segments
 
+
 def update(segments, function):
     for segment in segments:
         modified_line = function(segment.modified_line)

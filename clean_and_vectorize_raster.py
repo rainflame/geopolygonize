@@ -7,16 +7,45 @@ import warnings
 from processing import process_tile, VectorizerParameters
 from utils.tiler import Tiler, TilerParameters
 
-warnings.filterwarnings("ignore", category=RuntimeWarning) 
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
 
 @click.command()
-@click.option('--input-file', default="data/sources/*.tif", help='Input tif file')
-@click.option('--output-file', default="data/temp/combined.shp", help='Output shapefile')
-@click.option('--min-blob-size', default=30, help='The minimum number of pixels with the same value. Blobs smaller than this will be filtered out and replaced.')
-@click.option('--meters-per-pixel', default=30, help='The pixel size in meters')
-@click.option('--tile-size', default=200, help='Tile size in pixels')
-@click.option('--workers', default=multiprocessing.cpu_count(), help='Number of processes to spawn to process tiles in parallel')
-@click.option('--debug', is_flag=True, help='Debug mode')
+@click.option(
+    '--input-file',
+    default="data/sources/*.tif",
+    help='Input tif file',
+)
+@click.option(
+    '--output-file',
+    default="data/temp/combined.shp",
+    help='Output shapefile',
+)
+@click.option(
+    '--min-blob-size',
+    default=30,
+    help='The minimum number of pixels with the same value. '
+    'Blobs smaller than this will be filtered out and replaced.'
+)
+@click.option(
+    '--meters-per-pixel',
+    default=30,
+    help='The pixel size in meters',
+)
+@click.option(
+    '--tile-size',
+    default=200,
+    help='Tile size in pixels',
+)
+@click.option(
+    '--workers',
+    default=multiprocessing.cpu_count(),
+    help='Number of processes to spawn to process tiles in parallel'
+)
+@click.option(
+    '--debug',
+    is_flag=True, help='Debug mode',
+)
 def cli(
     input_file,
     output_file,
@@ -29,9 +58,9 @@ def cli(
     inputs = glob.glob(input_file)
     if len(inputs) >= 1:
         input_file = inputs[0]
-    else: 
+    else:
         raise ValueError(f'Input file does not exist: {input_file}')
-    
+
     # if there's a data/temp directory, delete it and start over
     if os.path.exists('data/temp'):
         os.system('rm -rf data/temp')

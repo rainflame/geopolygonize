@@ -1,6 +1,6 @@
 import requests
-import click 
-import time 
+import click
+import time
 import zipfile
 import json
 import os
@@ -16,15 +16,14 @@ import lxml.html
     help="Bounding box to download data for",
 )
 def cli(bbox):
-
     if not os.path.exists("data/sources"):
         os.makedirs("data/sources")
     else:
         # delete the existing files and make it again
         shutil.rmtree("data/sources")
         os.makedirs("data/sources")
-        
-    # get the layer values csv 
+
+    # get the layer values csv
     print("Downloading layer values csv...")
     url = "https://landfire.gov/CSV/LF2022/LF22_EVT_230.csv"
     response = requests.get(url)
@@ -35,16 +34,17 @@ def cli(bbox):
 
     # see https://lfps.usgs.gov/helpdocs/productstable.html for layer list
     host = "https://lfps.usgs.gov"
-    dataset = "230EVT" # 2022 existing vegetation type 
+    dataset = "230EVT"  # 2022 existing vegetation type
     bbox = bbox.replace(",", " ")
-    url = "{}/arcgis/rest/services/LandfireProductService/GPServer/LandfireProductService/submitJob?Layer_List={}&Area_Of_Interest={}".format(host, dataset, bbox)
-    
-    job_url = None
+    url = f"{host}/arcgis/rest/services/LandfireProductService/GPServer/" \
+        "LandfireProductService/submitJob?Layer_List={dataset}" \
+        "&Area_Of_Interest={bbox}"
 
+    job_url = None
     try:
         response = requests.get(url)
         tree = lxml.html.fromstring(response.text)
-        
+
         # get the second to last href
         job_url = tree.xpath('//a/@href')[-2]
 
@@ -55,7 +55,6 @@ def cli(bbox):
         print("Failed to submit job to Landfire API")
         print(e)
 
-
     working = True
 
     if job_url:
@@ -64,26 +63,35 @@ def cli(bbox):
                 print("Checking job status...")
                 response = requests.get(host + job_url)
                 tree = lxml.html.fromstring(response.text)
-                error_msgs = tree.xpath('//body//text()[contains(., "esriJobFailed")]')
+                error_msgs = tree.xpath(
+                    '//body//text()[contains(., "esriJobFailed")]'
+                )
                 if len(error_msgs) > 0:
                     print("Job failed")
-                    # print the text content of the last ul element on the page, containing error messages
+                    # print the text content of the last
+                    # ul element on the page,
+                    # containing error messages
                     trace = tree.xpath('//ul[last()]//text()')
                     for line in trace:
                         print(line)
                     working = False
                     break
                 else:
-                    complete_msgs = tree.xpath('//body//text()[contains(., "esriJobSucceeded")]')
+                    complete_msgs = tree.xpath(
+                        '//body//text()[contains(., "esriJobSucceeded")]'
+                    )
                     if len(complete_msgs) > 0:
                         try:
                             print("Job complete")
                             # search for the href with content "Output_File"
-                            output_url = tree.xpath('//a[text()="Output_File"]/@href')[0]
+                            output_url = tree.xpath(
+                                '//a[text()="Output_File"]/@href'
+                            )[0]
                             print("Downloading output file...")
                             response = requests.get(host + output_url)
                             tree = lxml.html.fromstring(response.text)
-                            # get the content of the last pre element on the page
+                            # get the content of the last
+                            # pre element on the page
                             pre = tree.xpath('//pre[last()]//text()')[0]
                             json_response = json.loads(pre)
                             zip_file = json_response['value']['url']
@@ -98,7 +106,9 @@ def cli(bbox):
                             # dowload the zipfile
                             response = requests.get(zip_file)
                             # save the zipfile
-                            with open("data/sources/landfire_vegetation.zip", "wb") as f:
+                            with open(
+                                "data/sources/landfire_vegetation.zip", "wb"
+                            ) as f:
                                 f.write(response.content)
                         except Exception as e:
                             print("Failed to download zipfile")
@@ -106,11 +116,13 @@ def cli(bbox):
                             working = False
                             break
 
-                        try: 
+                        try:
                             print("Unzipping zipfile...")
-                            with zipfile.ZipFile("data/sources/landfire_vegetation.zip", "r") as zip_ref:
+                            with zipfile.ZipFile(
+                                "data/sources/landfire_vegetation.zip", "r"
+                            ) as zip_ref:
                                 zip_ref.extractall("data/sources")
-                            # delete the zipfile 
+                            # delete the zipfile
                             os.remove("data/sources/landfire_vegetation.zip")
                         except Exception as e:
                             print("Failed to unzip zipfile")
@@ -124,7 +136,7 @@ def cli(bbox):
                     else:
                         print("Job still running, waiting...")
                         time.sleep(4)
-                
+
             except Exception as e:
                 print("Failed to get job status")
                 print(e)

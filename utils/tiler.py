@@ -1,7 +1,6 @@
-
 import glob
 import os
-import multiprocessing  as mp
+import multiprocessing as mp
 import sys
 from tqdm import tqdm
 
@@ -34,20 +33,21 @@ class TilerParameters:
         self.debug = debug
 
     def set_data_parameters(
-        self, 
+        self,
         meta,
         transform,
         data,
     ):
-        self.meta = meta 
+        self.meta = meta
         self.crs = self.meta['crs']
-        self.transform = transform 
+        self.transform = transform
         self.data = data
 
         self.endx = data.shape[0]
         self.endy = data.shape[1]
 
         self.render_raster_config = viz.get_show_config(data)
+
 
 class Tiler:
     def __init__(
@@ -91,18 +91,28 @@ class Tiler:
 
     def process_tiles(self, all_tile_args):
         tp = self.tiler_parameters
-        all_args = [
-            (tile_args, self.process_tile, self.tiler_parameters, self.processer_parameters)
-            for tile_args in all_tile_args
-        ]
+        all_args = [(
+            tile_args,
+            self.process_tile,
+            self.tiler_parameters,
+            self.processer_parameters,
+        ) for tile_args in all_tile_args]
+
         with mp.Pool(processes=tp.num_processes) as pool:
-            for _ in tqdm(pool.imap_unordered(self.process_tile_wrapper, all_args), total=len(all_args), desc="Processing tiles"):
+            for _ in tqdm(
+                pool.imap_unordered(self.process_tile_wrapper, all_args),
+                total=len(all_args),
+                desc="Processing tiles"
+            ):
                 pass
-            
+
     def stitch_tiles(self):
         tp = self.tiler_parameters
         all_gdfs = []
-        for filepath in tqdm(glob.glob(os.path.join(tp.temp_dir, "*.shp")), desc="Stitching tiles"):
+        for filepath in tqdm(
+            glob.glob(os.path.join(tp.temp_dir, "*.shp")),
+            desc="Stitching tiles",
+        ):
             gdf = gpd.read_file(filepath)
             all_gdfs.append(gdf)
         output_gdf = pd.concat(all_gdfs)

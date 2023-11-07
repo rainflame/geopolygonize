@@ -25,17 +25,21 @@ class VectorizerParameters:
         self.meters_per_pixel = meters_per_pixel
         self.simplification_pixel_window = simplification_pixel_window
 
+
 def clean(tile, tiler_parameters, parameters):
     cleaned = blobify(tile, parameters.min_blob_size, tiler_parameters.debug)
     if tiler_parameters.debug:
         viz.show_raster(cleaned, *tiler_parameters.render_raster_config)
     return cleaned
 
+
 def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
     tolerance = meters_per_pixel * simplification_pixel_window
+
     def simplify(segment):
         # Simplification will turn rings into what are effectively points.
-        # We cut the ring in half to provide simplification with non-ring segments instead.
+        # We cut the ring in half to provide simplification
+        # with non-ring segments instead.
         if segment.is_ring:
             assert len(segment.coords) >= 3
             midpoint_idx = len(segment.coords) // 2
@@ -50,9 +54,17 @@ def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
         return simplified
     return simplify
 
+
 def vectorize(tile, tiler_parameters, parameters):
-    simplify = generate_simplify_func(parameters.meters_per_pixel, parameters.simplification_pixel_window)
-    vector_builder = VectorBuilder(tile, tiler_parameters.transform, tiler_parameters.debug)
+    simplify = generate_simplify_func(
+        parameters.meters_per_pixel,
+        parameters.simplification_pixel_window,
+    )
+    vector_builder = VectorBuilder(
+        tile,
+        tiler_parameters.transform,
+        tiler_parameters.debug,
+    )
     vector_builder.run_per_segment(simplify)
     vector_builder.rebuild()
     simplified_polygons, labels = vector_builder.get_result()
@@ -60,10 +72,11 @@ def vectorize(tile, tiler_parameters, parameters):
     if tiler_parameters.debug:
         cmap = viz.generate_color_map(labels)
         viz.show_polygons(simplified_polygons, labels, color_map=cmap)
-    
+
     gdf = gpd.GeoDataFrame(geometry=simplified_polygons)
     gdf['label'] = labels
     return gdf
+
 
 def process_tile(tile_constraints, tiler_parameters, parameters):
     start_x, start_y, width, height = tile_constraints
@@ -89,7 +102,12 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     # in physical space, x and y are reversed
     shift_x = (by0 + buffer) * parameters.meters_per_pixel
     shift_y = -((bx0 + buffer) * parameters.meters_per_pixel)
-    gdf['geometry'] = gdf['geometry'].apply(lambda geom: translate(geom, xoff=shift_x, yoff=shift_y))
+    gdf['geometry'] = gdf['geometry'].apply(
+        lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
+    )
     gdf.crs = tiler_parameters.crs
-    gdf.to_file(os.path.join(tiler_parameters.temp_dir, f"tile-{start_x}-{start_y}.shp"))
+    gdf.to_file(os.path.join(
+        tiler_parameters.temp_dir,
+        f"tile-{start_x}-{start_y}.shp",
+    ))
     return gdf

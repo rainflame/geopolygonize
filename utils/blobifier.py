@@ -6,7 +6,8 @@ from scipy.stats import mode
 # Return a mask with True for pixels that are part of small blobs, else False.
 def identify_blobs(raster):
     # We have 2^31-1 = 2147483647 values available to use.
-    # Make sure the image is reasonably small to not have so many blobs, i.e. width * height < 2^31-1.
+    # Make sure the image is reasonably small to not have so many blobs,
+    # i.e. width * height < 2^31-1.
     blob_raster = np.zeros_like(raster, dtype=np.int32)
     unique_values = np.unique(raster)
     total_num_features = 0
@@ -18,7 +19,8 @@ def identify_blobs(raster):
         blob_raster[mask] = binary_blob_raster[mask] + total_num_features
         total_num_features += num_features
     return blob_raster
-    
+
+
 def mask_small_blobs(blob_raster, min_blob_size):
     small_blob_mask = np.zeros_like(blob_raster, dtype=bool)
     all_pixel_values = blob_raster.ravel()
@@ -28,13 +30,14 @@ def mask_small_blobs(blob_raster, min_blob_size):
         small_blob_mask[blob_raster == component_label] = True
     return small_blob_mask
 
+
 def fill_blobs(original, mask):
     neighborhood = np.array([
         [1, 1, 1],
         [1, 1, 1],
         [1, 1, 1]
     ], dtype=np.uint8)
-    
+
     def choose_value(x):
         center = x[4]
         selection = x[x != -1]
@@ -43,7 +46,7 @@ def fill_blobs(original, mask):
             return m
         else:
             return center
-     
+
     blob_raster = original.copy()
     blob_raster[mask] = -1
     while np.any(blob_raster == -1):
@@ -56,6 +59,7 @@ def fill_blobs(original, mask):
         )
         blob_raster = result
     return blob_raster
+
 
 def blobify(original, min_blob_size=5, debug=False):
     if debug:

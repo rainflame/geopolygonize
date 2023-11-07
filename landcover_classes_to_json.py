@@ -1,4 +1,4 @@
-import click 
+import click
 import glob
 import os
 import pandas as pd
@@ -9,24 +9,35 @@ from tqdm import tqdm
 
 
 @click.command()
-@click.option('--input-file', default="data/temp/landcover.geojsons", help='Vectorized landcover geojson file')
-@click.option('--values-file', default="data/sources/values.csv", help='Values CSV file')
-@click.option('--output-file', default="data/output/classes.json", help='Output JSON file')
+@click.option(
+    '--input-file',
+    default="data/temp/landcover.geojsons",
+    help='Vectorized landcover geojson file'
+)
+@click.option(
+    '--values-file',
+    default="data/sources/values.csv",
+    help='Values CSV file',
+)
+@click.option(
+    '--output-file',
+    default="data/output/classes.json",
+    help='Output JSON file',
+)
 def cli(input_file, values_file, output_file):
-
     inputs = glob.glob(input_file)
     if len(inputs) >= 1:
         input_file = inputs[0]
-    else: 
+    else:
         raise ValueError(f'Input file does not exist: {input_file}')
     pass
 
     values = glob.glob(values_file)
     if len(values) >= 1:
         values_file = values[0]
-    else: 
+    else:
         raise ValueError(f'Values file does not exist: {values_file}')
-    
+
     # verify the path ot the output file exists, if not create it
     output_dir = os.path.dirname(output_file)
     if not os.path.exists(output_dir):
