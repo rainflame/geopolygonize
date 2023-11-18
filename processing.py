@@ -9,10 +9,6 @@ import utils.visualization as viz
 from utils.blobifier import blobify
 from utils.vectorizer.vector_builder import VectorBuilder
 
-curr_dir = os.path.dirname(__file__)
-sys.path.append(os.path.join(curr_dir, "..", "..", "utils"))
-from simplify import simplify_geometry
-
 
 class VectorizerParameters:
     def __init__(
@@ -45,12 +41,12 @@ def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
             midpoint_idx = len(segment.coords) // 2
             segment1 = LineString(segment.coords[:midpoint_idx+1])
             segment2 = LineString(segment.coords[midpoint_idx:])
-            simplified1 = simplify_geometry(segment1, tolerance)
-            simplified2 = simplify_geometry(segment2, tolerance)
+            simplified1 = segment1.simplify(tolerance)
+            simplified2 = segment2.simplify(tolerance)
             coords = list(simplified1.coords)[:-1] + list(simplified2.coords)
             simplified = LineString(coords)
         else:
-            simplified = simplify_geometry(segment, tolerance)
+            simplified = segment.simplify(tolerance)
         return simplified
     return simplify
 
