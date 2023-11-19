@@ -61,11 +61,6 @@ def cli(
     else:
         raise ValueError(f'Input file does not exist: {input_file}')
 
-    # if there's a data/temp directory, delete it and start over
-    if os.path.exists('data/temp'):
-        os.system('rm -rf data/temp')
-    os.makedirs('data/temp', exist_ok=True)
-
     output_dir = os.path.dirname(output_file)
     if not os.path.exists(output_dir):
         raise ValueError(f'Output directory does not exist: {output_dir}')
