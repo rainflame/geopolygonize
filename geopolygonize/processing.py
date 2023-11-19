@@ -5,9 +5,9 @@ from shapely.geometry import LineString
 from shapely.affinity import translate
 import geopandas as gpd
 
-import utils.visualization as viz
-from utils.blobifier import blobify
-from utils.vectorizer.vector_builder import VectorBuilder
+from .utils.visualization import * 
+from .utils.blobifier import blobify
+from .utils.vectorizer.vector_builder import VectorBuilder
 
 
 class VectorizerParameters:
@@ -25,7 +25,7 @@ class VectorizerParameters:
 def clean(tile, tiler_parameters, parameters):
     cleaned = blobify(tile, parameters.min_blob_size, tiler_parameters.debug)
     if tiler_parameters.debug:
-        viz.show_raster(cleaned, *tiler_parameters.render_raster_config)
+        show_raster(cleaned, *tiler_parameters.render_raster_config)
     return cleaned
 
 
@@ -66,8 +66,8 @@ def vectorize(tile, tiler_parameters, parameters):
     simplified_polygons, labels = vector_builder.get_result()
 
     if tiler_parameters.debug:
-        cmap = viz.generate_color_map(labels)
-        viz.show_polygons(simplified_polygons, labels, color_map=cmap)
+        cmap = generate_color_map(labels)
+        show_polygons(simplified_polygons, labels, color_map=cmap)
 
     gdf = gpd.GeoDataFrame(geometry=simplified_polygons)
     gdf['label'] = labels

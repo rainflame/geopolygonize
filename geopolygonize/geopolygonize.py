@@ -4,8 +4,8 @@ import click
 import multiprocessing
 import warnings
 
-from processing import process_tile, VectorizerParameters
-from utils.tiler import Tiler, TilerParameters
+from .processing import process_tile, VectorizerParameters
+from .utils.tiler import Tiler, TilerParameters
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
