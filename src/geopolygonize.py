@@ -3,6 +3,8 @@ import glob
 import click
 import multiprocessing
 import warnings
+import tempfile
+import shutil
 
 from .processing import process_tile, VectorizerParameters
 from .utils.tiler import Tiler, TilerParameters
@@ -10,22 +12,27 @@ from .utils.tiler import Tiler, TilerParameters
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 
-@click.command()
+@click.command(
+    name="Geopolygonize",
+    help="Convert a geographic raster file into simplified polygons"
+)
 @click.option(
     '--input-file',
-    default="data/sources/*.tif",
+    type=click.Path(file_okay=True, dir_okay=False),
     help='Input tif file',
+    required=True,
 )
 @click.option(
     '--output-file',
-    default="data/temp/combined.shp",
+    type=click.Path(file_okay=True, dir_okay=False),
     help='Output shapefile',
+    required=True,
 )
 @click.option(
     '--min-blob-size',
     default=30,
-    help='The minimum number of pixels with the same value. '
-    'Blobs smaller than this will be filtered out and replaced.'
+    help='The minimum number of pixels with the same value. ' + \
+    'Blobs smaller than this will be filtered out and replaced'
 )
 @click.option(
     '--meters-per-pixel',
@@ -64,6 +71,9 @@ def cli(
     output_dir = os.path.dirname(output_file)
     if not os.path.exists(output_dir):
         raise ValueError(f'Output directory does not exist: {output_dir}')
+    
+    # create a temp dir that we can destroy when done
+    temp_dir = tempfile.mkdtemp()
 
     parameters = VectorizerParameters(
         min_blob_size=min_blob_size,
@@ -72,7 +82,7 @@ def cli(
     tiler_parameters = TilerParameters(
         num_processes=workers,
         tile_size=tile_size,
-        temp_dir='data/temp',
+        temp_dir=temp_dir,
         debug=debug,
     )
     rz = Tiler(
@@ -83,6 +93,8 @@ def cli(
         processer_parameters=parameters,
     )
     rz.process()
+
+    shutil.rmtree(temp_dir)
 
 
 if __name__ == '__main__':
