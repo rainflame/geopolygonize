@@ -22,6 +22,7 @@ class TilerParameters:
         startx=0,
         starty=0,
         tile_size=100,
+        label_name='label'
     ):
         self.temp_dir = temp_dir
         self.num_processes = num_processes
@@ -29,7 +30,7 @@ class TilerParameters:
         self.tile_size = tile_size
         self.startx = startx
         self.starty = starty
-
+        self.label_name = label_name
         self.debug = debug
 
     def set_data_parameters(

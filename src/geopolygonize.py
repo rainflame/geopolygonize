@@ -45,6 +45,11 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
     help='Tile size in pixels',
 )
 @click.option(
+    '--label-name',
+    default='label',
+    help='The name of the attribute to store the original pixel value in the output',
+)
+@click.option(
     '--workers',
     default=multiprocessing.cpu_count(),
     help='Number of processes to spawn to process tiles in parallel'
@@ -58,6 +63,7 @@ def cli(
     output_file,
     min_blob_size,
     meters_per_pixel,
+    label_name,
     workers,
     tile_size,
     debug,
@@ -82,6 +88,7 @@ def cli(
     tiler_parameters = TilerParameters(
         num_processes=workers,
         tile_size=tile_size,
+        label_name=label_name,
         temp_dir=temp_dir,
         debug=debug,
     )

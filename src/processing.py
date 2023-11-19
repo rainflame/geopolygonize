@@ -70,7 +70,7 @@ def vectorize(tile, tiler_parameters, parameters):
         show_polygons(simplified_polygons, labels, color_map=cmap)
 
     gdf = gpd.GeoDataFrame(geometry=simplified_polygons)
-    gdf['label'] = labels
+    gdf[tiler_parameters.label_name] = labels
     return gdf
 
 
