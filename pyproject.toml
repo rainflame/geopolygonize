@@ -42,7 +42,7 @@ Issues = "https://github.com/rainflame/geopolygonize/issues"
 Source = "https://github.com/rainflame/geopolygonize"
 
 [tool.hatch.scripts]
-geopolygonize = "geopolygonize.geopolygonize"
+geopolygonize = "src.geopolygonize"
 
 [tool.hatch.version]
-path = "geopolygonize/__about__.py"
+path = "src/__about__.py"
