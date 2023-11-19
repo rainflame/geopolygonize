@@ -41,8 +41,8 @@ Documentation = "https://github.com/rainflame/geopolygonize#readme"
 Issues = "https://github.com/rainflame/geopolygonize/issues"
 Source = "https://github.com/rainflame/geopolygonize"
 
-[tool.hatch.scripts]
-geopolygonize = "src.geopolygonize"
+[project.scripts]
+geopolygonize = "src.geopolygonize:cli"
 
 [tool.hatch.version]
 path = "src/__about__.py"
