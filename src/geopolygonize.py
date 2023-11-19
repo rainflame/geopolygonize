@@ -40,6 +40,19 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
     help='The pixel size in meters',
 )
 @click.option(
+    "--simplification-pixel-window",
+    default=1,
+    help="The amount of simplification applied relative to the pixel size." + \
+         "The higher the number, the more simplified the output." +\
+         "For example, with a pixel size of 30 meters and a simplification" + \
+         "of 2, the output will be simplified by 60 meters."
+)
+@click.option(
+    "--smoothing-iterations",
+    default=0,
+    help="The number of iterations of smoothing to run on the output polygons." 
+)
+@click.option(
     '--tile-size',
     default=200,
     help='Tile size in pixels',
@@ -63,11 +76,14 @@ def cli(
     output_file,
     min_blob_size,
     meters_per_pixel,
+    simplification_pixel_window,
+    smoothing_iterations,
     label_name,
     workers,
     tile_size,
     debug,
 ):
+    
     inputs = glob.glob(input_file)
     if len(inputs) >= 1:
         input_file = inputs[0]
@@ -78,30 +94,35 @@ def cli(
     if not os.path.exists(output_dir):
         raise ValueError(f'Output directory does not exist: {output_dir}')
     
+
     # create a temp dir that we can destroy when done
     temp_dir = tempfile.mkdtemp()
-
-    parameters = VectorizerParameters(
-        min_blob_size=min_blob_size,
-        meters_per_pixel=meters_per_pixel,
-    )
-    tiler_parameters = TilerParameters(
-        num_processes=workers,
-        tile_size=tile_size,
-        label_name=label_name,
-        temp_dir=temp_dir,
-        debug=debug,
-    )
-    rz = Tiler(
-        input_filepath=input_file,
-        output_filepath=output_file,
-        tiler_parameters=tiler_parameters,
-        process_tile=process_tile,
-        processer_parameters=parameters,
-    )
-    rz.process()
-
-    shutil.rmtree(temp_dir)
+    try: 
+        parameters = VectorizerParameters(
+            min_blob_size=min_blob_size,
+            meters_per_pixel=meters_per_pixel,
+            simplification_pixel_window=simplification_pixel_window,
+            smoothing_iterations=smoothing_iterations,
+        )
+        tiler_parameters = TilerParameters(
+            num_processes=workers,
+            tile_size=tile_size,
+            label_name=label_name,
+            temp_dir=temp_dir,
+            debug=debug,
+        )
+        rz = Tiler(
+            input_filepath=input_file,
+            output_filepath=output_file,
+            tiler_parameters=tiler_parameters,
+            process_tile=process_tile,
+            processer_parameters=parameters,
+        )
+        rz.process()
+    except Exception as e:
+        raise e
+    finally:
+        shutil.rmtree(temp_dir)
 
 
 if __name__ == '__main__':
