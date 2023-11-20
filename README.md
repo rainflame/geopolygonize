@@ -30,6 +30,18 @@ Optional raster preprocessing step to remove pixels that are not connected to ne
 
 The polygonization process can be run in parallel to speed up the computation. To prepare to process in parallel, the raster is cut into square tiles of this number of pixels.
 
+### `--meters-per-pixel`
+
+Specify the pixel size in meters. This is used for determining a sensible simplification tolerance.
+
+### `--simplification-pixel-window`
+
+The amount of simplification applied relative to the pixel size. The higher the number, the more simplified the output. For example, with a pixel size of 30 meters and a simplification pixel window of 2, the output polygons will be simplified by 60 meters.
+
+### `--smoothing-iterations`
+
+The number of iterations of smoothing to run on the output polygons. We use [Chaikin's corner cutting algorithm](http://graphics.cs.ucdavis.edu/education/CAGDNotes/Chaikins-Algorithm.pdf) for smoothing.
+
 ### `--workers`
 
 Number of workers that should be spawned to process tiles in parallel.
@@ -40,6 +52,12 @@ Install the requirements:
 
 ```
 pip install -r requirements.txt
+```
+
+Then run the CLI:
+
+```
+python -m src.geopolygonize --input-file...
 ```
 
 \# TODO: API docs

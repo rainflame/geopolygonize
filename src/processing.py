@@ -6,6 +6,7 @@ from shapely.affinity import translate
 import geopandas as gpd
 
 from .utils.visualization import * 
+from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import blobify
 from .utils.vectorizer.vector_builder import VectorBuilder
 
@@ -16,10 +17,12 @@ class VectorizerParameters:
         min_blob_size=5,
         meters_per_pixel=1,
         simplification_pixel_window=1,
+        smoothing_iterations=0,
     ):
         self.min_blob_size = min_blob_size
         self.meters_per_pixel = meters_per_pixel
         self.simplification_pixel_window = simplification_pixel_window
+        self.smoothing_iterations = smoothing_iterations
 
 
 def clean(tile, tiler_parameters, parameters):
@@ -28,6 +31,12 @@ def clean(tile, tiler_parameters, parameters):
         show_raster(cleaned, *tiler_parameters.render_raster_config)
     return cleaned
 
+
+def generate_smoothing_func(iterations):
+    def smooth(segment):
+        coords = chaikins_corner_cutting(segment.coords, iterations)
+        return LineString(coords)
+    return smooth
 
 def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
     tolerance = meters_per_pixel * simplification_pixel_window
@@ -56,12 +65,17 @@ def vectorize(tile, tiler_parameters, parameters):
         parameters.meters_per_pixel,
         parameters.simplification_pixel_window,
     )
+    smooth = generate_smoothing_func(
+        parameters.smoothing_iterations
+    )
     vector_builder = VectorBuilder(
         tile,
         tiler_parameters.transform,
         tiler_parameters.debug,
     )
+
     vector_builder.run_per_segment(simplify)
+    vector_builder.run_per_segment(smooth)
     vector_builder.rebuild()
     simplified_polygons, labels = vector_builder.get_result()
 
