@@ -35,9 +35,10 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
     'Blobs smaller than this will be filtered out and replaced'
 )
 @click.option(
-    '--meters-per-pixel',
-    default=30,
-    help='The pixel size in meters',
+    '--pixel-size',
+    default=0,
+    type=float,
+    help="Override the size of the pixels in units of the input file's coordinate reference system.",
 )
 @click.option(
     "--simplification-pixel-window",
@@ -75,7 +76,7 @@ def cli(
     input_file,
     output_file,
     min_blob_size,
-    meters_per_pixel,
+    pixel_size,
     simplification_pixel_window,
     smoothing_iterations,
     label_name,
@@ -100,7 +101,7 @@ def cli(
     try: 
         parameters = VectorizerParameters(
             min_blob_size=min_blob_size,
-            meters_per_pixel=meters_per_pixel,
+            pixel_size=pixel_size,
             simplification_pixel_window=simplification_pixel_window,
             smoothing_iterations=smoothing_iterations,
         )

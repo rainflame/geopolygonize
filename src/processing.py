@@ -15,12 +15,12 @@ class VectorizerParameters:
     def __init__(
         self,
         min_blob_size=5,
-        meters_per_pixel=1,
+        pixel_size=0,
         simplification_pixel_window=1,
         smoothing_iterations=0,
     ):
         self.min_blob_size = min_blob_size
-        self.meters_per_pixel = meters_per_pixel
+        self.pixel_size = pixel_size
         self.simplification_pixel_window = simplification_pixel_window
         self.smoothing_iterations = smoothing_iterations
 
@@ -38,8 +38,8 @@ def generate_smoothing_func(iterations):
         return LineString(coords)
     return smooth
 
-def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
-    tolerance = meters_per_pixel * simplification_pixel_window
+def generate_simplify_func(pixel_size, simplification_pixel_window):
+    tolerance = pixel_size * simplification_pixel_window
 
     def simplify(segment):
         # Simplification will turn rings into what are effectively points.
@@ -61,8 +61,15 @@ def generate_simplify_func(meters_per_pixel, simplification_pixel_window):
 
 
 def vectorize(tile, tiler_parameters, parameters):
+
+    pixel_size = parameters.pixel_size
+    # get the resolution from the input file if the user hasn't specified one
+    if pixel_size == 0:
+        pixel_size = abs(tiler_parameters.res[0])
+        parameters.pixel_size = pixel_size
+        
     simplify = generate_simplify_func(
-        parameters.meters_per_pixel,
+        parameters.pixel_size,
         parameters.simplification_pixel_window,
     )
     smooth = generate_smoothing_func(
@@ -110,8 +117,8 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     )
 
     # in physical space, x and y are reversed
-    shift_x = (by0 + buffer) * parameters.meters_per_pixel
-    shift_y = -((bx0 + buffer) * parameters.meters_per_pixel)
+    shift_x = (by0 + buffer) * parameters.pixel_size
+    shift_y = -((bx0 + buffer) * parameters.pixel_size)
     gdf['geometry'] = gdf['geometry'].apply(
         lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
     )

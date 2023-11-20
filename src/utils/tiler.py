@@ -38,10 +38,12 @@ class TilerParameters:
         meta,
         transform,
         data,
+        res,
     ):
         self.meta = meta
         self.crs = self.meta['crs']
         self.transform = transform
+        self.res = res
         self.data = data
 
         self.endx = data.shape[0]
@@ -70,7 +72,8 @@ class Tiler:
             meta = src.meta
             transform = src.transform
             data = src.read(1)
-            tiler_parameters.set_data_parameters(meta, transform, data)
+            res = src.res
+            tiler_parameters.set_data_parameters(meta, transform, data, res)
 
     def generate_tiles(self):
         tp = self.tiler_parameters
