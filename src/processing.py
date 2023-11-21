@@ -5,7 +5,6 @@ from shapely.geometry import LineString
 from shapely.affinity import translate
 import geopandas as gpd
 
-from .utils.visualization import * 
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import blobify
 from .utils.segmenter.segmenter import Segmenter
