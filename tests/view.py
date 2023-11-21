@@ -2,7 +2,7 @@ import click
 
 import geopandas as gpd
 
-from .utils.visualization import show_polygons
+from visualization import show_polygons
 
 
 @click.command()

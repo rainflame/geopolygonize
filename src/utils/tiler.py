@@ -10,7 +10,6 @@ import geopandas as gpd
 
 utils_dir = os.path.dirname(__file__)
 sys.path.append(utils_dir)
-import visualization as viz
 
 
 class TilerParameters:
@@ -46,8 +45,6 @@ class TilerParameters:
 
         self.endx = data.shape[0]
         self.endy = data.shape[1]
-
-        self.render_raster_config = viz.get_show_config(data)
 
 
 class Tiler:
