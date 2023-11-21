@@ -4,6 +4,7 @@ import sys
 from shapely.geometry import LineString
 from shapely.affinity import translate
 import geopandas as gpd
+import rasterio
 
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import blobify
@@ -13,6 +14,8 @@ from .utils.segmenter.segmenter import Segmenter
 class VectorizerParameters:
     def __init__(
         self,
+        input_filepath,
+        label_name='label',
         min_blob_size=5,
         pixel_size=0,
         simplification_pixel_window=1,
@@ -23,8 +26,16 @@ class VectorizerParameters:
         self.simplification_pixel_window = simplification_pixel_window
         self.smoothing_iterations = smoothing_iterations
 
+        self.label_name = label_name
+        with rasterio.open(input_filepath) as src:
+            self.meta = src.meta
+            self.crs = self.meta['crs']
+            self.transform = src.transform
+            self.data = src.read(1)
+            self.res = src.res
 
-def clean(tile, tiler_parameters, parameters):
+
+def clean(tile, parameters):
     cleaned = blobify(tile, parameters.min_blob_size)
     return cleaned
 
@@ -57,12 +68,12 @@ def generate_simplify_func(pixel_size, simplification_pixel_window):
     return simplify
 
 
-def vectorize(tile, tiler_parameters, parameters):
+def vectorize(tile, parameters):
 
     pixel_size = parameters.pixel_size
     # get the resolution from the input file if the user hasn't specified one
     if pixel_size == 0:
-        pixel_size = abs(tiler_parameters.res[0])
+        pixel_size = abs(parameters.res[0])
         parameters.pixel_size = pixel_size
         
     simplify = generate_simplify_func(
@@ -74,7 +85,7 @@ def vectorize(tile, tiler_parameters, parameters):
     )
     segmenter = Segmenter(
         tile,
-        tiler_parameters.transform,
+        parameters.transform,
     )
 
     segmenter.run_per_segment(simplify)
@@ -83,7 +94,7 @@ def vectorize(tile, tiler_parameters, parameters):
     simplified_polygons, labels = segmenter.get_result()
 
     gdf = gpd.GeoDataFrame(geometry=simplified_polygons)
-    gdf[tiler_parameters.label_name] = labels
+    gdf[parameters.label_name] = labels
     return gdf
 
 
@@ -99,12 +110,11 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
         return gpd.GeoDataFrame()
 
-    tile_raster = tiler_parameters.data[bx0:bx1, by0:by1]
-    cleaned = clean(tile_raster, tiler_parameters, parameters)
+    tile_raster = parameters.data[bx0:bx1, by0:by1]
+    cleaned = clean(tile_raster, parameters)
     unbuffered = cleaned[buffer:-buffer, buffer:-buffer]
     gdf = vectorize(
         unbuffered,
-        tiler_parameters,
         parameters,
     )
 
@@ -114,7 +124,7 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
     gdf['geometry'] = gdf['geometry'].apply(
         lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
     )
-    gdf.crs = tiler_parameters.crs
+    gdf.crs = parameters.crs
     gdf.to_file(os.path.join(
         tiler_parameters.temp_dir,
         f"tile-{start_x}-{start_y}.shp",

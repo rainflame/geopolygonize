@@ -95,25 +95,28 @@ def cli(
     temp_dir = tempfile.mkdtemp()
     try: 
         parameters = VectorizerParameters(
+            input_filepath=input_file,
+            label_name=label_name,
             min_blob_size=min_blob_size,
             pixel_size=pixel_size,
             simplification_pixel_window=simplification_pixel_window,
             smoothing_iterations=smoothing_iterations,
         )
+
         tiler_parameters = TilerParameters(
+            data=parameters.data,
             num_processes=workers,
             tile_size=tile_size,
-            label_name=label_name,
             temp_dir=temp_dir,
         )
         rz = Tiler(
-            input_filepath=input_file,
-            output_filepath=output_file,
             tiler_parameters=tiler_parameters,
             process_tile=process_tile,
             processer_parameters=parameters,
         )
-        rz.process()
+        gdf = rz.process()
+        gdf.to_file(output_file)
+
     except Exception as e:
         raise e
     finally:
