@@ -10,7 +10,6 @@ fiona==1.9.5
 fonttools==4.44.3
 geopandas==0.14.1
 kiwisolver==1.4.5
-matplotlib==3.8.2
 numpy==1.26.2
 packaging==23.2
 pandas==2.1.3
