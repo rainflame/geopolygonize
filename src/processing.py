@@ -8,7 +8,7 @@ import geopandas as gpd
 from .utils.visualization import * 
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import blobify
-from .utils.vectorizer.vector_builder import VectorBuilder
+from .utils.segmenter.segmenter import Segmenter
 
 
 class VectorizerParameters:
@@ -73,15 +73,15 @@ def vectorize(tile, tiler_parameters, parameters):
     smooth = generate_smoothing_func(
         parameters.smoothing_iterations
     )
-    vector_builder = VectorBuilder(
+    segmenter = Segmenter(
         tile,
         tiler_parameters.transform,
     )
 
-    vector_builder.run_per_segment(simplify)
-    vector_builder.run_per_segment(smooth)
-    vector_builder.rebuild()
-    simplified_polygons, labels = vector_builder.get_result()
+    segmenter.run_per_segment(simplify)
+    segmenter.run_per_segment(smooth)
+    segmenter.rebuild()
+    simplified_polygons, labels = segmenter.get_result()
 
     gdf = gpd.GeoDataFrame(geometry=simplified_polygons)
     gdf[tiler_parameters.label_name] = labels

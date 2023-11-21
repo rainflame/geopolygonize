@@ -4,14 +4,14 @@ import sys
 from rasterio.transform import xy
 from shapely.geometry import Polygon
 
-vectorizer_dir = os.path.dirname(__file__)
-sys.path.append(vectorizer_dir)
+segmenter_dir = os.path.dirname(__file__)
+sys.path.append(segmenter_dir)
 import area_computer as ac
 import loop_computer as lc
 import segment_computer as sc
 
 
-class VectorBuilder:
+class Segmenter:
     def __init__(self, data, transform):
         self.data = data
         self.transform = transform
