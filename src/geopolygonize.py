@@ -68,10 +68,6 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
     default=multiprocessing.cpu_count(),
     help='Number of processes to spawn to process tiles in parallel'
 )
-@click.option(
-    '--debug',
-    is_flag=True, help='Debug mode',
-)
 def cli(
     input_file,
     output_file,
@@ -82,7 +78,6 @@ def cli(
     label_name,
     workers,
     tile_size,
-    debug,
 ):
     
     inputs = glob.glob(input_file)
@@ -110,7 +105,6 @@ def cli(
             tile_size=tile_size,
             label_name=label_name,
             temp_dir=temp_dir,
-            debug=debug,
         )
         rz = Tiler(
             input_filepath=input_file,

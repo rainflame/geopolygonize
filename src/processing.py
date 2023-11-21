@@ -26,9 +26,7 @@ class VectorizerParameters:
 
 
 def clean(tile, tiler_parameters, parameters):
-    cleaned = blobify(tile, parameters.min_blob_size, tiler_parameters.debug)
-    if tiler_parameters.debug:
-        show_raster(cleaned, *tiler_parameters.render_raster_config)
+    cleaned = blobify(tile, parameters.min_blob_size)
     return cleaned
 
 
@@ -78,17 +76,12 @@ def vectorize(tile, tiler_parameters, parameters):
     vector_builder = VectorBuilder(
         tile,
         tiler_parameters.transform,
-        tiler_parameters.debug,
     )
 
     vector_builder.run_per_segment(simplify)
     vector_builder.run_per_segment(smooth)
     vector_builder.rebuild()
     simplified_polygons, labels = vector_builder.get_result()
-
-    if tiler_parameters.debug:
-        cmap = generate_color_map(labels)
-        show_polygons(simplified_polygons, labels, color_map=cmap)
 
     gdf = gpd.GeoDataFrame(geometry=simplified_polygons)
     gdf[tiler_parameters.label_name] = labels

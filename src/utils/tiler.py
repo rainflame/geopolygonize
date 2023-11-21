@@ -18,7 +18,6 @@ class TilerParameters:
         self,
         temp_dir=os.path.join("data", "temp"),
         num_processes=1,
-        debug=False,
         startx=0,
         starty=0,
         tile_size=100,
@@ -31,7 +30,6 @@ class TilerParameters:
         self.startx = startx
         self.starty = starty
         self.label_name = label_name
-        self.debug = debug
 
     def set_data_parameters(
         self,
@@ -87,11 +85,7 @@ class Tiler:
     @staticmethod
     def process_tile_wrapper(args):
         tile_args, process_tile, tiler_parameters, processer_parameters = args
-        if tiler_parameters.debug:
-            print(f"Tile args: {tile_args}")
         process_tile(tile_args, tiler_parameters, processer_parameters)
-        if tiler_parameters.debug:
-            print()
 
     def process_tiles(self, all_tile_args):
         tp = self.tiler_parameters
@@ -124,9 +118,6 @@ class Tiler:
         return all_gdfs
 
     def process(self):
-        tp = self.tiler_parameters
-        if tp.debug:
-            viz.show_raster(tp.data, *tp.render_raster_config)
         all_tile_args = self.generate_tiles()
         self.process_tiles(all_tile_args)
         self.stitch_tiles()
