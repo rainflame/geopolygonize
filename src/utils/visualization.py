@@ -56,7 +56,7 @@ def show_polygons(polygons, labels=None, color_map=None):
 
     for i, p in enumerate(polygons):
         x, y = p.exterior.xy
-        ax.plot(x, y, color=color_map[labels[i]])
+        ax.fill(x, y, color=color_map[labels[i]])
         for interior in p.interiors:
             x, y = interior.xy
             ax.plot(x, y, color=color_map[labels[i]])

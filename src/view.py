@@ -2,7 +2,7 @@ import click
 
 import geopandas as gpd
 
-import utils.visualization as viz
+from .utils.visualization import show_polygons
 
 
 @click.command()
@@ -31,7 +31,7 @@ def cli(file, label_name):
             polygons.append(shape)
             labels.append(label)
 
-    viz.show_polygons(polygons, labels)
+    show_polygons(polygons, labels)
 
 
 if __name__ == '__main__':
