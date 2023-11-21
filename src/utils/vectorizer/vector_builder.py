@@ -12,26 +12,19 @@ import segment_computer as sc
 
 
 class VectorBuilder:
-    def __init__(self, data, transform, debug):
+    def __init__(self, data, transform):
         self.data = data
         self.transform = transform
-        self.debug = debug
         self.build()
 
     def build(self):
-        if self.debug:
-            print("Computing areas...")
         self.areas = ac.build(self.data, self.transform)
 
         # Add a polygon that is the perimeter of data.
         # This ensures that we fix the boundary of the data in place.
         self.perimeter = self.build_perimeter()
-        if self.debug:
-            print("Computing loops...")
         self.loops = lc.build(self.perimeter, self.areas)
 
-        if self.debug:
-            print("Computing segments...")
         self.segments = sc.build(self.loops)
 
     def build_perimeter(self):
@@ -50,16 +43,10 @@ class VectorBuilder:
         return perimeter
 
     def run_per_segment(self, per_segment_function):
-        if self.debug:
-            print("Running per-segment function...")
         sc.update(self.segments, per_segment_function)
 
     def rebuild(self):
-        if self.debug:
-            print("Rebuilding loops...")
         lc.rebuild(self.loops)
-        if self.debug:
-            print("Rebuilding areas...")
         ac.rebuild(self.areas)
 
     def get_result(self):
