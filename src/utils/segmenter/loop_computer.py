@@ -1,12 +1,9 @@
 from .loop import Loop
 
 
-def build(perimeter, areas):
+def build(areas):
     all_loops = []
     loop_count = 0
-
-    all_loops.append(Loop(loop_count, perimeter))
-    loop_count += 1
 
     for i in range(len(areas)):
         area = areas[i]

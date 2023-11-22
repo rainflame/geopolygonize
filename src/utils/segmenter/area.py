@@ -2,9 +2,8 @@ from shapely.geometry import Polygon
 
 
 class Area:
-    def __init__(self, polygon, label):
+    def __init__(self, polygon):
         self.polygon = polygon
-        self.label = label
 
         self.exterior = None
         self.interiors = []
