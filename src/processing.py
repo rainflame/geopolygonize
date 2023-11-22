@@ -1,37 +1,30 @@
-import os
+from dataclasses import dataclass
 
+from affine import Affine
 import geopandas as gpd
-from shapely.geometry import shape, LineString
-from shapely.affinity import translate
+import numpy as np
+from rasterio.crs import CRS
 from rasterio.features import shapes
+from shapely.affinity import translate
+from shapely.geometry import shape, LineString
+from typing import Dict
 
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import blobify
 from .utils.segmenter.segmenter import Segmenter
 
 
+@dataclass
 class GeoPolygonizerParameters:
-    def __init__(
-        self,
-        data,
-        meta,
-        crs,
-        transform,
-        label_name='label',
-        min_blob_size=5,
-        pixel_size=0,
-        simplification_pixel_window=1,
-        smoothing_iterations=0,
-    ):
-        self.data = data
-        self.meta = meta
-        self.crs = crs
-        self.transform = transform
-        self.label_name = label_name
-        self.min_blob_size = min_blob_size
-        self.pixel_size = pixel_size
-        self.simplification_pixel_window = simplification_pixel_window
-        self.smoothing_iterations = smoothing_iterations
+    data: np.ndarray
+    meta: Dict[str, object]
+    crs: CRS
+    transform: Affine
+    label_name: str = 'label'
+    min_blob_size: int = 5
+    pixel_size: int = 0
+    simplification_pixel_window: int = 1
+    smoothing_iterations: int = 0
 
 
 def clean(tile, parameters):
@@ -93,14 +86,18 @@ def vectorize(tile, parameters):
     return gdf
 
 
-def process_tile(tile_constraints, tiler_parameters, parameters):
-    start_x, start_y, width, height = tile_constraints
-
+def process_tile(tile_parameters, tiler_parameters, parameters):
     buffer = parameters.min_blob_size - 1
-    bx0 = max(start_x-buffer, 0)
-    by0 = max(start_y-buffer, 0)
-    bx1 = min(start_x+width+buffer, tiler_parameters.endx)
-    by1 = min(start_y+height+buffer, tiler_parameters.endy)
+    bx0 = max(tile_parameters.start_x-buffer, 0)
+    by0 = max(tile_parameters.start_y-buffer, 0)
+    bx1 = min(
+        tile_parameters.start_x+tile_parameters.width+buffer,
+        tiler_parameters.endx
+    )
+    by1 = min(
+        tile_parameters.start_y+tile_parameters.height+buffer,
+        tiler_parameters.endy
+    )
 
     if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
         return gpd.GeoDataFrame()
@@ -120,8 +117,4 @@ def process_tile(tile_constraints, tiler_parameters, parameters):
         lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
     )
     gdf.crs = parameters.crs
-    gdf.to_file(os.path.join(
-        tiler_parameters.temp_dir,
-        f"tile-{start_x}-{start_y}.shp",
-    ))
     return gdf

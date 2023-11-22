@@ -103,6 +103,9 @@ def cli(
         transform = src.transform
         res = src.res
 
+    endx = data.shape[0]
+    endy = data.shape[1]
+
     if pixel_size == 0:
         # assume pixel is square
         assert abs(res[0] - res[1]) < EPSILON
@@ -128,9 +131,10 @@ def cli(
 
         temp_dir = tempfile.mkdtemp()
         tiler_parameters = TilerParameters(
-            data=parameters.data,
-            num_processes=workers,
+            endx=endx,
+            endy=endy,
             tile_size=tile_size,
+            num_processes=workers,
             temp_dir=temp_dir,
         )
         rz = Tiler(
