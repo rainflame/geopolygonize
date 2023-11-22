@@ -93,7 +93,6 @@ def vectorize(tile, parameters):
 
     segmenter.run_per_segment(simplify)
     segmenter.run_per_segment(smooth)
-    segmenter.rebuild()
     modified_polygons = segmenter.get_result()
 
     gdf = gpd.GeoDataFrame(geometry=modified_polygons)

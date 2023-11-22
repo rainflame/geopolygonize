@@ -44,7 +44,6 @@ so that in the final shapefile, they do not appear pixelated.
 segmenter = Segmenter(polygons)
 segmenter.run_per_segment(simplification_function)
 segmenter.run_per_segment(smoothen_function)
-segmenter.rebuild()
 modified_polygons = segmenter.get_result()
 ```
 
