@@ -1,11 +1,11 @@
 from shapely import LineString, Polygon
 from typing import Callable, List
 
-from .area_computer import build as area_build, rebuild as area_rebuild
-from .boundary_computer import\
-    build as boundary_build, \
-    rebuild as boundary_rebuild
-from .segment_computer import build as segment_build, update as segment_update
+from .area import Area
+from .boundary import Boundary
+from .intersections_computer import compute_intersections
+from .cutpoints_computer import compute_cutpoints
+from .references_computer import compute_references
 
 
 class Segmenter:
@@ -21,7 +21,9 @@ class Segmenter:
         self,
         per_segment_function: Callable[[LineString], LineString]
     ):
-        segment_update(self.segments, per_segment_function)
+        for segment in self.segments:
+            modified_line = per_segment_function(segment.modified_line)
+            segment.modified_line = modified_line
 
     def get_result(self) -> List[Polygon]:
         self._rebuild()
@@ -30,10 +32,60 @@ class Segmenter:
         return modified_polygons
 
     def _build(self):
-        self.areas = area_build(self.polygons)
-        self.boundaries = boundary_build(self.areas)
-        self.segments = segment_build(self.boundaries)
+        self._area_build()
+        self._boundary_build()
+        self._segment_build()
 
     def _rebuild(self):
-        boundary_rebuild(self.boundaries)
-        area_rebuild(self.areas)
+        self._boundary_rebuild()
+        self._area_rebuild()
+
+    def _area_build(self):
+        areas = [Area(p) for p in self.polygons]
+        self.areas = areas
+
+    def _area_rebuild(self):
+        for i in range(len(self.areas)):
+            area = self.areas[i]
+            area.rebuild()
+
+    def _boundary_build(self):
+        boundaries = []
+        boundary_count = 0
+
+        for i in range(len(self.areas)):
+            area = self.areas[i]
+
+            exterior = Boundary(boundary_count, area.polygon.exterior)
+            boundary_count += 1
+
+            interiors = [
+                Boundary(boundary_count + j, l) for j, l
+                in enumerate(area.polygon.interiors)
+            ]
+            boundary_count += len(area.polygon.interiors)
+
+            area.exterior = exterior
+            area.interiors = interiors
+
+            boundaries.extend([exterior] + interiors)
+
+        self.boundaries = boundaries
+
+    def _boundary_rebuild(self):
+        for b in range(len(self.boundaries)):
+            boundary = self.boundaries[b]
+            boundary.rebuild()
+
+    def _segment_build(self):
+        compute_intersections(self.boundaries)
+        compute_cutpoints(self.boundaries)
+        compute_references(self.boundaries)
+
+        segments = []
+        for b in range(len(self.boundaries)):
+            boundary = self.boundaries[b]
+            for segment in boundary.segments:
+                if boundary.idx == segment.reference.boundary.idx:
+                    segments.append(segment)
+        self.segments = segments
