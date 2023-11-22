@@ -57,7 +57,7 @@ gdf.to_file(elevation_shp_filepath)
 ## Method
 
 The `Segmenter` returns the minimum set of mutually exclusive "segments" 
-that in union are equal to the boundaries of the areas.
+that in union are equal to the boundaries of the areas, hence its name.
 
 It is possible to find this set in a more efficient way.
 However, it's unclear if there is a significantly faster
