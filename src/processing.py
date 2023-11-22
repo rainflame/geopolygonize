@@ -3,7 +3,6 @@ import os
 import geopandas as gpd
 from shapely.geometry import shape, LineString
 from shapely.affinity import translate
-import rasterio
 from rasterio.features import shapes
 
 from .utils.smoothing import chaikins_corner_cutting
@@ -14,25 +13,25 @@ from .utils.segmenter.segmenter import Segmenter
 class GeoPolygonizerParameters:
     def __init__(
         self,
-        input_filepath,
+        data,
+        meta,
+        crs,
+        transform,
         label_name='label',
         min_blob_size=5,
         pixel_size=0,
         simplification_pixel_window=1,
         smoothing_iterations=0,
     ):
+        self.data = data
+        self.meta = meta
+        self.crs = crs
+        self.transform = transform
+        self.label_name = label_name
         self.min_blob_size = min_blob_size
         self.pixel_size = pixel_size
         self.simplification_pixel_window = simplification_pixel_window
         self.smoothing_iterations = smoothing_iterations
-
-        self.label_name = label_name
-        with rasterio.open(input_filepath) as src:
-            self.meta = src.meta
-            self.crs = self.meta['crs']
-            self.transform = src.transform
-            self.data = src.read(1)
-            self.res = src.res
 
 
 def clean(tile, parameters):
@@ -70,12 +69,6 @@ def generate_simplify_func(pixel_size, simplification_pixel_window):
 
 
 def vectorize(tile, parameters):
-    pixel_size = parameters.pixel_size
-    # get the resolution from the input file if the user hasn't specified one
-    if pixel_size == 0:
-        pixel_size = abs(parameters.res[0])
-        parameters.pixel_size = pixel_size
-
     simplify = generate_simplify_func(
         parameters.pixel_size,
         parameters.simplification_pixel_window,
