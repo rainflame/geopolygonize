@@ -8,7 +8,7 @@ import shutil
 
 import rasterio
 
-from .processing import process_tile, GeoPolygonizerParameters
+from .geopolygonizer import GeoPolygonizer
 from .utils.tiler import Tiler, TilerParameters
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -117,7 +117,7 @@ def cli(
             )
 
     try:
-        parameters = GeoPolygonizerParameters(
+        geopolygonizer = GeoPolygonizer(
             data=data,
             meta=meta,
             crs=crs,
@@ -139,8 +139,7 @@ def cli(
         )
         rz = Tiler(
             tiler_parameters=tiler_parameters,
-            process_tile=process_tile,
-            processer_parameters=parameters,
+            process_tile=geopolygonizer.process_tile,
         )
         gdf = rz.process()
         gdf.to_file(output_file)

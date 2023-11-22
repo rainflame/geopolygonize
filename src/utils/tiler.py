@@ -33,14 +33,12 @@ class Tiler:
         self,
         tiler_parameters: TilerParameters,
         process_tile: Callable[
-            [TileParameters, TilerParameters, object],
+            [TileParameters, TilerParameters],
             gpd.GeoDataFrame
         ],
-        processer_parameters: object,
     ):
         self.tiler_parameters = tiler_parameters
         self.process_tile = process_tile
-        self.processer_parameters = processer_parameters
 
     def _generate_tiles(self) -> List[TileParameters]:
         tp = self.tiler_parameters
@@ -55,18 +53,15 @@ class Tiler:
     def _process_tile_wrapper(args: Tuple[
         TileParameters,
         Callable[
-            [TileParameters, TilerParameters, object],
+            [TileParameters, TilerParameters],
             gpd.GeoDataFrame
         ],
         TilerParameters,
-        object,
     ]):
-        tile_parameters, process_tile, \
-            tiler_parameters, processer_parameters = args
+        tile_parameters, process_tile, tiler_parameters = args
         gdf = process_tile(
             tile_parameters,
             tiler_parameters,
-            processer_parameters,
         )
 
         gdf.to_file(os.path.join(
@@ -80,7 +75,6 @@ class Tiler:
             tile_parameters,
             self.process_tile,
             self.tiler_parameters,
-            self.processer_parameters,
         ) for tile_parameters in all_tile_parameters]
 
         with mp.Pool(processes=tp.num_processes) as pool:
