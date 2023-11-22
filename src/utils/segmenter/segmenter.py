@@ -3,9 +3,9 @@ from typing import Callable, List
 
 from .area import Area
 from .boundary import Boundary
-from .intersections_computer import compute_intersections
-from .cutpoints_computer import compute_cutpoints
-from .references_computer import compute_references
+from .intersections_computer import IntersectionsComputer
+from .cutpoints_computer import CutpointsComputer
+from .references_computer import ReferencesComputer
 
 
 class Segmenter:
@@ -78,9 +78,9 @@ class Segmenter:
             boundary.rebuild()
 
     def _segment_build(self):
-        compute_intersections(self.boundaries)
-        compute_cutpoints(self.boundaries)
-        compute_references(self.boundaries)
+        IntersectionsComputer(self.boundaries).compute_intersections()
+        CutpointsComputer(self.boundaries).compute_cutpoints()
+        ReferencesComputer(self.boundaries).compute_references()
 
         segments = []
         for b in range(len(self.boundaries)):
