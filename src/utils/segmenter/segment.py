@@ -3,8 +3,8 @@ from shapely.geometry import LineString
 
 
 class Segment:
-    def __init__(self, loop, line):
-        self.loop = loop
+    def __init__(self, boundary, line):
+        self.boundary = boundary
         self.line = line
 
         self.start = Point(line.coords[0])

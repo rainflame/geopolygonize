@@ -2,12 +2,12 @@ from shapely.geometry import LineString, Point
 from rtree import index
 
 
-def make_index(all_loops):
-    loop_idx = index.Index()
-    for i, loop in enumerate(all_loops):
-        bbox = loop.line.bounds
-        loop_idx.insert(i, bbox)
-    return loop_idx
+def make_index(all_boundaries):
+    boundary_idx = index.Index()
+    for i, boundary in enumerate(all_boundaries):
+        bbox = boundary.line.bounds
+        boundary_idx.insert(i, bbox)
+    return boundary_idx
 
 
 def line_string(ls):
@@ -21,8 +21,8 @@ def line_string(ls):
 
 def multi_line_string(mls):
     pieces = []
-    for l in mls.geoms:
-        pieces.extend(line_string(l))
+    for b in mls.geoms:
+        pieces.extend(line_string(b))
     return pieces
 
 
@@ -97,20 +97,20 @@ def get_connected_segments(pieces):
     return segments
 
 
-def compute_intersections(all_loops):
-    loop_idx = make_index(all_loops)
+def compute_intersections(all_boundaries):
+    boundary_idx = make_index(all_boundaries)
 
-    for l in range(len(all_loops)):
-        curr_loop = all_loops[l]
+    for b in range(len(all_boundaries)):
+        curr_boundary = all_boundaries[b]
 
-        for n in loop_idx.intersection(curr_loop.line.bounds):
-            if n == l:
+        for n in boundary_idx.intersection(curr_boundary.line.bounds):
+            if n == b:
                 continue
-            if n < l:
+            if n < b:
                 continue  # handled already
-            other_loop = all_loops[n]
+            other_boundary = all_boundaries[n]
 
-            intersection = curr_loop.line.intersection(other_loop.line)
+            intersection = curr_boundary.line.intersection(other_boundary.line)
             intersection_pieces = handle(intersection)
 
             intersection_segments = get_connected_segments(intersection_pieces)
@@ -124,11 +124,11 @@ def compute_intersections(all_loops):
 
             if is_ring:
                 assert len(intersection_segments) == 1, \
-                    "If the intersection with another loop is a ring, " \
+                    "If the intersection with another boundary is a ring, " \
                     "expect the ring to be the only intersection."
                 ring = intersection_segments[0]
-                curr_loop.ring_intersections[n] = ring
-                other_loop.ring_intersections[l] = ring
+                curr_boundary.ring_intersections[n] = ring
+                other_boundary.ring_intersections[b] = ring
             else:
-                curr_loop.intersections[n] = intersection_segments
-                other_loop.intersections[l] = intersection_segments
+                curr_boundary.intersections[n] = intersection_segments
+                other_boundary.intersections[b] = intersection_segments

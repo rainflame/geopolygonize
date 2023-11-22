@@ -3,16 +3,16 @@ from .cutpoints_computer import compute_cutpoints
 from .references_computer import compute_references
 
 
-def build(loops):
-    compute_intersections(loops)
-    compute_cutpoints(loops)
-    compute_references(loops)
+def build(boundaries):
+    compute_intersections(boundaries)
+    compute_cutpoints(boundaries)
+    compute_references(boundaries)
 
     segments = []
-    for l in range(len(loops)):
-        loop = loops[l]
-        for segment in loop.segments:
-            if loop.idx == segment.reference.loop.idx:
+    for b in range(len(boundaries)):
+        boundary = boundaries[b]
+        for segment in boundary.segments:
+            if boundary.idx == segment.reference.boundary.idx:
                 segments.append(segment)
     return segments
 

@@ -1,5 +1,7 @@
 from .area_computer import build as area_build, rebuild as area_rebuild
-from .loop_computer import build as loop_build, rebuild as loop_rebuild
+from .boundary_computer import\
+    build as boundary_build, \
+    rebuild as boundary_rebuild
 from .segment_computer import build as segment_build, update as segment_update
 
 
@@ -10,14 +12,14 @@ class Segmenter:
 
     def build(self):
         self.areas = area_build(self.polygons)
-        self.loops = loop_build(self.areas)
-        self.segments = segment_build(self.loops)
+        self.boundaries = boundary_build(self.areas)
+        self.segments = segment_build(self.boundaries)
 
     def run_per_segment(self, per_segment_function):
         segment_update(self.segments, per_segment_function)
 
     def rebuild(self):
-        loop_rebuild(self.loops)
+        boundary_rebuild(self.boundaries)
         area_rebuild(self.areas)
 
     def get_result(self):

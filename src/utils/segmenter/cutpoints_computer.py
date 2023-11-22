@@ -1,30 +1,30 @@
 from shapely.geometry import Point
 
 
-def use_cutpoints_from_neighbor_start_points(all_loops):
-    for l in range(len(all_loops)):
-        curr_loop = all_loops[l]
-        for n in curr_loop.intersections:
-            other_loop = all_loops[n]
+def use_cutpoints_from_neighbor_start_points(all_boundaries):
+    for b in range(len(all_boundaries)):
+        curr_boundary = all_boundaries[b]
+        for n in curr_boundary.intersections:
+            other_boundary = all_boundaries[n]
 
-            other_start = Point(other_loop.line.coords[0])
-            on_curr_loop = curr_loop.on_loop(other_start)
-            if on_curr_loop:
-                curr_loop.cutpoints.append(other_start)
+            other_start = Point(other_boundary.line.coords[0])
+            on_curr_boundary = curr_boundary.on_boundary(other_start)
+            if on_curr_boundary:
+                curr_boundary.cutpoints.append(other_start)
 
-            curr_start = Point(curr_loop.line.coords[0])
-            on_other_loop = other_loop.on_loop(curr_start)
-            if on_other_loop:
-                other_loop.cutpoints.append(curr_start)
+            curr_start = Point(curr_boundary.line.coords[0])
+            on_other_boundary = other_boundary.on_boundary(curr_start)
+            if on_other_boundary:
+                other_boundary.cutpoints.append(curr_start)
 
 
-def use_cutpoints_from_intersection_endpoints(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
-        loop_start_end = Point(loop.line.coords[0])
+def use_cutpoints_from_intersection_endpoints(all_boundaries):
+    for b in range(len(all_boundaries)):
+        boundary = all_boundaries[b]
+        boundary_start_end = Point(boundary.line.coords[0])
 
-        cutpoints = [loop_start_end]
-        for _n, intersection_segments in loop.intersections.items():
+        cutpoints = [boundary_start_end]
+        for _n, intersection_segments in boundary.intersections.items():
             for intersection_segment in intersection_segments:
                 if intersection_segment.is_ring:
                     continue
@@ -32,17 +32,17 @@ def use_cutpoints_from_intersection_endpoints(all_loops):
                 end = Point(intersection_segment.coords[-1])
                 cutpoints.extend([start, end])
 
-        loop.cutpoints.extend(cutpoints)
+        boundary.cutpoints.extend(cutpoints)
 
 
-def set_sorted_unique_cutpoints(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
-        loop.cutpoints = list(set(loop.cutpoints))
-        loop.cutpoints.sort(key=loop.point_sort_key)
+def set_sorted_unique_cutpoints(all_boundaries):
+    for b in range(len(all_boundaries)):
+        boundary = all_boundaries[b]
+        boundary.cutpoints = list(set(boundary.cutpoints))
+        boundary.cutpoints.sort(key=boundary.point_sort_key)
 
 
-def compute_cutpoints(all_loops):
-    use_cutpoints_from_neighbor_start_points(all_loops)
-    use_cutpoints_from_intersection_endpoints(all_loops)
-    set_sorted_unique_cutpoints(all_loops)
+def compute_cutpoints(all_boundaries):
+    use_cutpoints_from_neighbor_start_points(all_boundaries)
+    use_cutpoints_from_intersection_endpoints(all_boundaries)
+    set_sorted_unique_cutpoints(all_boundaries)
