@@ -3,7 +3,6 @@ import os
 import geopandas as gpd
 from shapely.geometry import shape, LineString
 from shapely.affinity import translate
-import rasterio
 from rasterio.features import shapes
 
 from .utils.smoothing import chaikins_corner_cutting
@@ -11,42 +10,28 @@ from .utils.blobifier import blobify
 from .utils.segmenter.segmenter import Segmenter
 
 
-EPSILON = 1.0e-10
-
-
 class GeoPolygonizerParameters:
     def __init__(
         self,
-        input_filepath,
+        data,
+        meta,
+        crs,
+        transform,
         label_name='label',
         min_blob_size=5,
         pixel_size=0,
         simplification_pixel_window=1,
         smoothing_iterations=0,
     ):
+        self.data = data
+        self.meta = meta
+        self.crs = crs
+        self.transform = transform
+        self.label_name = label_name
         self.min_blob_size = min_blob_size
         self.pixel_size = pixel_size
         self.simplification_pixel_window = simplification_pixel_window
         self.smoothing_iterations = smoothing_iterations
-
-        self.label_name = label_name
-        with rasterio.open(input_filepath) as src:
-            self.meta = src.meta
-            self.crs = self.meta['crs']
-            self.transform = src.transform
-            self.data = src.read(1)
-
-            if pixel_size == 0:
-                # assume pixel is square
-                assert abs(src.res[0] - src.res[1]) < EPSILON
-                self.pixel_size = abs(src.res[0])
-                if self.pixel_size == 0:
-                    raise RuntimeError(
-                        "Cannot infer pixel size from input file. "
-                        "Please input it manually using `--pixel-size`."
-                    )
-            else:
-                self.pixel_size = pixel_size
 
 
 def clean(tile, parameters):

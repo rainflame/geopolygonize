@@ -6,10 +6,14 @@ import warnings
 import tempfile
 import shutil
 
+import rasterio
+
 from .processing import process_tile, GeoPolygonizerParameters
 from .utils.tiler import Tiler, TilerParameters
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+EPSILON = 1.0e-10
 
 
 @click.command(
@@ -92,11 +96,29 @@ def cli(
     if not os.path.exists(output_dir):
         raise ValueError(f'Output directory does not exist: {output_dir}')
 
-    # create a temp dir that we can destroy when done
-    temp_dir = tempfile.mkdtemp()
+    with rasterio.open(input_file) as src:
+        data = src.read(1)
+        meta = src.meta
+        crs = meta['crs']
+        transform = src.transform
+        res = src.res
+
+    if pixel_size == 0:
+        # assume pixel is square
+        assert abs(res[0] - res[1]) < EPSILON
+        pixel_size = abs(res[0])
+        if pixel_size == 0:
+            raise RuntimeError(
+                "Cannot infer pixel size from input file. "
+                "Please input it manually using `--pixel-size`."
+            )
+
     try:
         parameters = GeoPolygonizerParameters(
-            input_filepath=input_file,
+            data=data,
+            meta=meta,
+            crs=crs,
+            transform=transform,
             label_name=label_name,
             min_blob_size=min_blob_size,
             pixel_size=pixel_size,
@@ -104,6 +126,7 @@ def cli(
             smoothing_iterations=smoothing_iterations,
         )
 
+        temp_dir = tempfile.mkdtemp()
         tiler_parameters = TilerParameters(
             data=parameters.data,
             num_processes=workers,
