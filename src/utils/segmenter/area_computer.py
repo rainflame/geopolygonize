@@ -2,7 +2,7 @@ from rasterio.features import shapes
 
 from shapely.geometry import shape
 
-from area import Area
+from .area import Area
 
 
 def build(data, transform):

@@ -1,4 +1,4 @@
-from loop import Loop
+from .loop import Loop
 
 
 def build(perimeter, areas):

@@ -1,6 +1,6 @@
 from shapely.geometry import LineString, Point
 
-from segment import Segment
+from .segment import Segment
 
 
 def get_positions(sort_key, length, points):

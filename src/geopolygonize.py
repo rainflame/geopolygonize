@@ -14,59 +14,62 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 @click.command(
     name="Geopolygonize",
-    help="Convert a geographic raster file into simplified polygons"
+    help="Convert a geographic raster file into simplified polygons",
 )
 @click.option(
     '--input-file',
     type=click.Path(file_okay=True, dir_okay=False),
-    help='Input tif file',
+    help="Input tif file",
     required=True,
 )
 @click.option(
     '--output-file',
     type=click.Path(file_okay=True, dir_okay=False),
-    help='Output shapefile',
+    help="Output shapefile",
     required=True,
 )
 @click.option(
     '--min-blob-size',
     default=30,
-    help='The minimum number of pixels with the same value. ' + \
-    'Blobs smaller than this will be filtered out and replaced'
+    help="The minimum number of pixels with the same value. "
+         "Blobs smaller than this will be filtered out and replaced.",
 )
 @click.option(
     '--pixel-size',
     default=0,
     type=float,
-    help="Override the size of the pixels in units of the input file's coordinate reference system.",
+    help="Override the size of the pixels in units of the "
+         "input file's coordinate reference system.",
 )
 @click.option(
     "--simplification-pixel-window",
     default=1,
-    help="The amount of simplification applied relative to the pixel size." + \
-         "The higher the number, the more simplified the output." +\
-         "For example, with a pixel size of 30 meters and a simplification" + \
-         "of 2, the output will be simplified by 60 meters."
+    help="The amount of simplification applied relative to the pixel size. "
+         "The higher the number, the more simplified the output. "
+         "For example, with a pixel size of 30 meters and a simplification "
+         "of 2, the output will be simplified by 60 meters.",
 )
 @click.option(
     "--smoothing-iterations",
     default=0,
-    help="The number of iterations of smoothing to run on the output polygons." 
+    help="The number of iterations of smoothing to run on the "
+         "output polygons.",
 )
 @click.option(
     '--tile-size',
     default=200,
-    help='Tile size in pixels',
+    help="Tile size in pixels",
 )
 @click.option(
     '--label-name',
     default='label',
-    help='The name of the attribute to store the original pixel value in the output',
+    help="The name of the attribute to store the original "
+         "pixel value in the output.",
 )
 @click.option(
     '--workers',
     default=multiprocessing.cpu_count(),
-    help='Number of processes to spawn to process tiles in parallel'
+    help="Number of processes to spawn to process tiles in parallel."
 )
 def cli(
     input_file,
@@ -79,7 +82,6 @@ def cli(
     workers,
     tile_size,
 ):
-    
     inputs = glob.glob(input_file)
     if len(inputs) >= 1:
         input_file = inputs[0]
@@ -89,11 +91,10 @@ def cli(
     output_dir = os.path.dirname(output_file)
     if not os.path.exists(output_dir):
         raise ValueError(f'Output directory does not exist: {output_dir}')
-    
 
     # create a temp dir that we can destroy when done
     temp_dir = tempfile.mkdtemp()
-    try: 
+    try:
         parameters = GeoPolygonizerParameters(
             input_filepath=input_file,
             label_name=label_name,

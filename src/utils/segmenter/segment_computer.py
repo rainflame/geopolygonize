@@ -1,6 +1,6 @@
-from intersections_computer import compute_intersections
-from cutpoints_computer import compute_cutpoints
-from references_computer import compute_references
+from .intersections_computer import compute_intersections
+from .cutpoints_computer import compute_cutpoints
+from .references_computer import compute_references
 
 
 def build(loops):

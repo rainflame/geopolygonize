@@ -1,14 +1,9 @@
-import os
-import sys
-
 from rasterio.transform import xy
 from shapely.geometry import Polygon
 
-segmenter_dir = os.path.dirname(__file__)
-sys.path.append(segmenter_dir)
-import area_computer as ac
-import loop_computer as lc
-import segment_computer as sc
+from .area_computer import build as area_build, rebuild as area_rebuild
+from .loop_computer import build as loop_build, rebuild as loop_rebuild
+from .segment_computer import build as segment_build, update as segment_update
 
 
 class Segmenter:
@@ -18,14 +13,14 @@ class Segmenter:
         self.build()
 
     def build(self):
-        self.areas = ac.build(self.data, self.transform)
+        self.areas = area_build(self.data, self.transform)
 
         # Add a polygon that is the perimeter of data.
         # This ensures that we fix the boundary of the data in place.
         self.perimeter = self.build_perimeter()
-        self.loops = lc.build(self.perimeter, self.areas)
+        self.loops = loop_build(self.perimeter, self.areas)
 
-        self.segments = sc.build(self.loops)
+        self.segments = segment_build(self.loops)
 
     def build_perimeter(self):
         (width, height) = self.data.shape
@@ -43,11 +38,11 @@ class Segmenter:
         return perimeter
 
     def run_per_segment(self, per_segment_function):
-        sc.update(self.segments, per_segment_function)
+        segment_update(self.segments, per_segment_function)
 
     def rebuild(self):
-        lc.rebuild(self.loops)
-        ac.rebuild(self.areas)
+        loop_rebuild(self.loops)
+        area_rebuild(self.areas)
 
     def get_result(self):
         modified_polygons = [c.modified_polygon for c in self.areas]

@@ -1,5 +1,4 @@
 import os
-import sys
 
 from shapely.geometry import LineString
 from shapely.affinity import translate
@@ -46,6 +45,7 @@ def generate_smoothing_func(iterations):
         return LineString(coords)
     return smooth
 
+
 def generate_simplify_func(pixel_size, simplification_pixel_window):
     tolerance = pixel_size * simplification_pixel_window
 
@@ -69,13 +69,12 @@ def generate_simplify_func(pixel_size, simplification_pixel_window):
 
 
 def vectorize(tile, parameters):
-
     pixel_size = parameters.pixel_size
     # get the resolution from the input file if the user hasn't specified one
     if pixel_size == 0:
         pixel_size = abs(parameters.res[0])
         parameters.pixel_size = pixel_size
-        
+
     simplify = generate_simplify_func(
         parameters.pixel_size,
         parameters.simplification_pixel_window,
