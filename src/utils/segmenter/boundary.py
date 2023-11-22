@@ -2,20 +2,22 @@ from shapely.geometry import LineString, Point
 from rtree import index
 
 
-class Loop:
-    def __init__(self, idx, loop):
+class Boundary:
+    def __init__(self, idx, boundary):
         self.idx = idx
-        self.line = LineString(loop.coords)
+        self.line = LineString(boundary.coords)
         self.setup_sort_cache()
         self.setup_temporary_variables()
 
-        # If N loops share a segment, the reference loop is the loop
-        # with the min idx. We can perform non-deterministic processing
-        # on the segment once and only once, therefore ensuring no gaps
-        # appear between loops that share the segment. Even deterministic
-        # processing may output different results for the same segment
-        # oriented differently (start and end being the same versus reversed).
-        # Segments are oriented based on where they exist along the loop.
+        # If N boundaries share a segment, the reference boundary
+        # is the boundary with the min idx.
+        # We can perform non-deterministic processing on the segment
+        # once and only once, therefore ensuring no gaps
+        # appear between boundaries that share the segment.
+        # Even deterministic processing may output different results
+        # for the same segment oriented differently
+        # (start and end being the same versus reversed).
+        # Segments are oriented based on where they exist along the boundary.
         self.segment_map = {}
         self.segments = []
 
@@ -47,13 +49,13 @@ class Loop:
         self.intersections = {}  # neighbor idx -> intersection segments
 
         # Cutpoints are points that define the endpoints of the segments.
-        # If loops A and B share an intersection, they are expected to have
-        # all the same cutpoints between them.
+        # If boundaries A and B share an intersection,
+        # they are expected to have all the same cutpoints between them.
         # Will be sorted before use.
         self.cutpoints = []
         self.segment_idx_to_neighbors = None
 
-    def on_loop(self, point):
+    def on_boundary(self, point):
         start = Point(self.line.coords[0])
         end = Point(self.line.coords[-1])
         return point.intersects(self.line) \

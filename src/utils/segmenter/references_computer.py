@@ -20,11 +20,11 @@ def get_iterations(line, sort_key, length):
     line_points = [Point(c) for c in line.coords]
     if line.is_ring:
         line_points = line_points[:-1]
-    first_loop = [(p, sort_key(p)) for p in line_points]
-    second_loop = [(p, pos + length) for (p, pos) in first_loop]
+    first_boundary = [(p, sort_key(p)) for p in line_points]
+    second_boundary = [(p, pos + length) for (p, pos) in first_boundary]
     if line.is_ring:
-        second_loop.append((line_points[0], 2*length))
-    return first_loop + second_loop
+        second_boundary.append((line_points[0], 2*length))
+    return first_boundary + second_boundary
 
 
 def get_segments_helper(line, sort_key, length, cutpoints):
@@ -63,11 +63,11 @@ def get_segments_helper(line, sort_key, length, cutpoints):
     return segments
 
 
-def get_segments(loop, cutpoints):
+def get_segments(boundary, cutpoints):
     segments = get_segments_helper(
-        loop.line,
-        loop.point_sort_key,
-        loop.line.length, cutpoints,
+        boundary.line,
+        boundary.point_sort_key,
+        boundary.line.length, cutpoints,
     )
     assert len(segments) == len(cutpoints) - 1, \
         "Expect number of segments to be one " \
@@ -75,31 +75,31 @@ def get_segments(loop, cutpoints):
     return segments
 
 
-def compute_segments_per_loop(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
+def compute_segments_per_boundary(all_boundaries):
+    for b in range(len(all_boundaries)):
+        boundary = all_boundaries[b]
 
-        cutpoints_with_end = loop.cutpoints + [loop.cutpoints[0]]
-        segment_lines = get_segments(loop, cutpoints_with_end)
-        loop.segments = [Segment(loop, sl) for sl in segment_lines]
-        assert len(loop.cutpoints) == len(loop.segments), \
+        cutpoints_with_end = boundary.cutpoints + [boundary.cutpoints[0]]
+        segment_lines = get_segments(boundary, cutpoints_with_end)
+        boundary.segments = [Segment(boundary, sl) for sl in segment_lines]
+        assert len(boundary.cutpoints) == len(boundary.segments), \
             "Expect number of segments " \
             "to equal number of cutpoints."
-        loop.segment_map = {
-            (s.start, s.end): i for i, s in enumerate(loop.segments)
+        boundary.segment_map = {
+            (s.start, s.end): i for i, s in enumerate(boundary.segments)
         }
 
 
 # Get cutpoints to split intersection by.
-def get_relevant_cutpoints(loop, intersection):
+def get_relevant_cutpoints(boundary, intersection):
     start = Point(intersection.coords[0])
     end = Point(intersection.coords[-1])
 
-    super_line = LineString(loop.cutpoints)
+    super_line = LineString(boundary.cutpoints)
     super_segments = get_segments_helper(
         super_line,
-        loop.point_sort_key,
-        loop.line.length,
+        boundary.point_sort_key,
+        boundary.line.length,
         [start, end],
     )
     super_segment = super_segments[0]
@@ -108,69 +108,70 @@ def get_relevant_cutpoints(loop, intersection):
     return relevant_cutpoints
 
 
-def compute_loops_per_segment(all_loops):
-    for l in range(len(all_loops)):
-        curr_loop = all_loops[l]
-        curr_loop.segment_idx_to_neighbors = [
-            [(l, curr_loop.segments[i], False)]
-            for i in range(len(curr_loop.segments))
+def compute_boundaries_per_segment(all_boundaries):
+    for b in range(len(all_boundaries)):
+        curr_boundary = all_boundaries[b]
+        curr_boundary.segment_idx_to_neighbors = [
+            [(b, curr_boundary.segments[i], False)]
+            for i in range(len(curr_boundary.segments))
         ]
 
-    for l in range(len(all_loops)):
-        curr_loop = all_loops[l]
+    for b in range(len(all_boundaries)):
+        curr_boundary = all_boundaries[b]
 
-        for n in curr_loop.ring_intersections:
-            if n <= l:
+        for n in curr_boundary.ring_intersections:
+            if n <= b:
                 continue
-            other_loop = all_loops[n]
-            cutpoints_with_end = curr_loop.cutpoints + [curr_loop.cutpoints[0]]
+            other_boundary = all_boundaries[n]
+            cutpoints_with_end =\
+                curr_boundary.cutpoints + [curr_boundary.cutpoints[0]]
             for i in range(len(cutpoints_with_end)-1):
                 start = cutpoints_with_end[i]
                 end = cutpoints_with_end[i+1]
-                segment = curr_loop.get_segment(start, end)
+                segment = curr_boundary.get_segment(start, end)
 
                 other_seg_idx, reverse = \
-                    other_loop.get_segment_idx_and_reverse(
+                    other_boundary.get_segment_idx_and_reverse(
                         start, end, segment.line
                     )
-                other_loop.segment_idx_to_neighbors[other_seg_idx] \
-                    .append((l, segment, reverse))
+                other_boundary.segment_idx_to_neighbors[other_seg_idx] \
+                    .append((b, segment, reverse))
 
-        for n, intersection_segments in curr_loop.intersections.items():
-            if n <= l:
+        for n, intersection_segments in curr_boundary.intersections.items():
+            if n <= b:
                 continue  # handled already
-            other_loop = all_loops[n]
+            other_boundary = all_boundaries[n]
 
             for intersection_segment in intersection_segments:
                 rel_cutpoints = get_relevant_cutpoints(
-                    curr_loop,
+                    curr_boundary,
                     intersection_segment,
                 )
 
                 for i in range(len(rel_cutpoints)-1):
                     start = rel_cutpoints[i]
                     end = rel_cutpoints[i+1]
-                    segment = curr_loop.get_segment(start, end)
+                    segment = curr_boundary.get_segment(start, end)
 
                     other_seg_idx, reverse = \
-                        other_loop.get_segment_idx_and_reverse(
+                        other_boundary.get_segment_idx_and_reverse(
                             start, end, segment.line
                         )
-                    other_loop.segment_idx_to_neighbors[other_seg_idx] \
-                        .append((l, segment, reverse))
+                    other_boundary.segment_idx_to_neighbors[other_seg_idx] \
+                        .append((b, segment, reverse))
 
 
-def compute_reference_per_segment(all_loops):
-    for l in range(len(all_loops)):
-        loop = all_loops[l]
+def compute_reference_per_segment(all_boundaries):
+    for b in range(len(all_boundaries)):
+        boundary = all_boundaries[b]
 
-        for i, nps in enumerate(loop.segment_idx_to_neighbors):
+        for i, nps in enumerate(boundary.segment_idx_to_neighbors):
             _reference_idx, reference_segment, reverse = \
                 min(nps, key=lambda x: x[0])
-            loop.segments[i].set_reference(reference_segment, reverse)
+            boundary.segments[i].set_reference(reference_segment, reverse)
 
 
-def compute_references(all_loops):
-    compute_segments_per_loop(all_loops)
-    compute_loops_per_segment(all_loops)
-    compute_reference_per_segment(all_loops)
+def compute_references(all_boundaries):
+    compute_segments_per_boundary(all_boundaries)
+    compute_boundaries_per_segment(all_boundaries)
+    compute_reference_per_segment(all_boundaries)

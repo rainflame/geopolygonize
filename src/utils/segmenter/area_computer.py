@@ -1,13 +1,8 @@
-from rasterio.features import shapes
-
-from shapely.geometry import shape
-
 from .area import Area
 
 
-def build(data, transform):
-    shapes_gen = shapes(data, transform=transform)
-    all_areas = [Area(shape(s), v) for s, v in shapes_gen]
+def build(polygons):
+    all_areas = [Area(p) for p in polygons]
     return all_areas
 
 

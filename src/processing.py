@@ -1,9 +1,10 @@
 import os
 
-from shapely.geometry import LineString
-from shapely.affinity import translate
 import geopandas as gpd
+from shapely.geometry import shape, LineString
+from shapely.affinity import translate
 import rasterio
+from rasterio.features import shapes
 
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import blobify
@@ -82,17 +83,19 @@ def vectorize(tile, parameters):
     smooth = generate_smoothing_func(
         parameters.smoothing_iterations
     )
-    segmenter = Segmenter(
-        tile,
-        parameters.transform,
-    )
+
+    shapes_gen = shapes(tile, transform=parameters.transform)
+    polygons_and_labels = list(zip(*[(shape(s), v) for s, v in shapes_gen]))
+    polygons = polygons_and_labels[0]
+    labels = polygons_and_labels[1]
+
+    segmenter = Segmenter(polygons)
 
     segmenter.run_per_segment(simplify)
     segmenter.run_per_segment(smooth)
-    segmenter.rebuild()
-    simplified_polygons, labels = segmenter.get_result()
+    modified_polygons = segmenter.get_result()
 
-    gdf = gpd.GeoDataFrame(geometry=simplified_polygons)
+    gdf = gpd.GeoDataFrame(geometry=modified_polygons)
     gdf[parameters.label_name] = labels
     return gdf
 
