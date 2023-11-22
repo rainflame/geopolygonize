@@ -6,7 +6,7 @@ import warnings
 import tempfile
 import shutil
 
-from .processing import process_tile, VectorizerParameters
+from .processing import process_tile, GeoPolygonizerParameters
 from .utils.tiler import Tiler, TilerParameters
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -94,7 +94,7 @@ def cli(
     # create a temp dir that we can destroy when done
     temp_dir = tempfile.mkdtemp()
     try: 
-        parameters = VectorizerParameters(
+        parameters = GeoPolygonizerParameters(
             input_filepath=input_file,
             label_name=label_name,
             min_blob_size=min_blob_size,

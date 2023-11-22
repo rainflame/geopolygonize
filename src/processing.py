@@ -11,7 +11,7 @@ from .utils.blobifier import blobify
 from .utils.segmenter.segmenter import Segmenter
 
 
-class VectorizerParameters:
+class GeoPolygonizerParameters:
     def __init__(
         self,
         input_filepath,
