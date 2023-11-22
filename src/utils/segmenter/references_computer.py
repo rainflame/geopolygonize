@@ -5,6 +5,11 @@ from shapely.geometry import LineString, Point
 from .segment import Segment
 
 
+"""
+Identifies boundaries that share a common segment and determines
+the reference segment object from which duplicates of the segment
+in the boundaries should copy from.
+"""
 class ReferencesComputer:
     def __init__(
         self,

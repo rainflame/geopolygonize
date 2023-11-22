@@ -4,6 +4,10 @@ from shapely.geometry import LineString, Point
 from rtree import index
 
 
+"""
+Computes intersections between boundaries, each of which keeps a record
+of which other boundaries it intersected with and where.
+"""
 class IntersectionsComputer:
     def __init__(
         self,
