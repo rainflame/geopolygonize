@@ -8,7 +8,7 @@ from shapely.geometry import shape, LineString, Polygon
 from typing import Any, Callable, Dict, List
 
 from .utils.smoothing import chaikins_corner_cutting
-from .utils.blobifier import blobify
+from .utils.blobifier import Blobifier
 from .utils.segmenter.segmenter import Segmenter
 
 
@@ -36,7 +36,8 @@ class GeoPolygonizer:
         self.smoothing_iterations = smoothing_iterations
 
     def _clean(self, tile: np.ndarray) -> np.ndarray:
-        cleaned = blobify(tile, self.min_blob_size)
+        blobifier = Blobifier(tile, self.min_blob_size)
+        cleaned = blobifier.blobify()
         return cleaned
 
     def _generate_smoothing_func(self) -> Callable[[LineString], LineString]:
