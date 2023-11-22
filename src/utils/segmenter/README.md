@@ -28,7 +28,7 @@ with rasterio.open(elevation_tif_filepath) as src:
 
 Preprocess the data to bucket elevation in tiers of 1000 meters.
 ```
-preprocessed_data = data % 1000 * 1000
+preprocessed_data = data // 1000 * 1000
 ```
 
 Turn the raster into `Polygon`s.
