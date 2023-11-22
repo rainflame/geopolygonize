@@ -1,7 +1,8 @@
-from typing import List
+from typing import Callable, List
 
 from shapely.geometry import LineString, Point
 
+from .boundary import Boundary
 from .segment import Segment
 
 
@@ -17,10 +18,15 @@ class ReferencesComputer:
     ):
         self.boundaries = boundaries
 
-    def _get_positions(self, sort_key, length, points):
-        positions = []
+    def _get_positions(
+        self,
+        get_sort_key: Callable[[Point], float],
+        length: float,
+        points: List[Point]
+    ) -> List[float]:
+        positions: List[float] = []
         for i, p in enumerate(points):
-            position = sort_key(p)
+            position = get_sort_key(p)
             if i > 0 and position <= positions[i-1]:
                 position += length
                 assert position > positions[i-1], \
@@ -29,22 +35,33 @@ class ReferencesComputer:
             positions.append(position)
         return positions
 
-    def _get_iterations(self, line, sort_key, length):
+    def _get_iterations(
+        self,
+        line: LineString,
+        get_sort_key: Callable[[Point], float],
+        length: float,
+    ) -> List[Point]:
         line_points = [Point(c) for c in line.coords]
         if line.is_ring:
             line_points = line_points[:-1]
-        first_boundary = [(p, sort_key(p)) for p in line_points]
+        first_boundary = [(p, get_sort_key(p)) for p in line_points]
         second_boundary = [(p, pos + length) for (p, pos) in first_boundary]
         if line.is_ring:
             second_boundary.append((line_points[0], 2*length))
         return first_boundary + second_boundary
 
-    def _get_segments_helper(self, line, sort_key, length, cutpoints):
-        positions = self._get_positions(sort_key, length, cutpoints)
+    def _get_segments_helper(
+        self,
+        line: LineString,
+        get_sort_key: Callable[[Point], float],
+        length: float,
+        cutpoints: List[Point]
+    ) -> List[LineString]:
+        positions = self._get_positions(get_sort_key, length, cutpoints)
         assert len(positions) == len(cutpoints), \
             "Expect the number of positions to be " \
             "the same as the number of cutpoints."
-        iterations = self._get_iterations(line, sort_key, length)
+        iterations = self._get_iterations(line, get_sort_key, length)
 
         segments = []
         segment_coords = None
@@ -74,10 +91,14 @@ class ReferencesComputer:
 
         return segments
 
-    def _get_segments(self, boundary, cutpoints):
+    def _get_segments(
+        self,
+        boundary: Boundary,
+        cutpoints: List[Point],
+    ) -> List[LineString]:
         segments = self._get_segments_helper(
             boundary.line,
-            boundary.point_sort_key,
+            boundary.get_point_sort_key,
             boundary.line.length, cutpoints,
         )
         assert len(segments) == len(cutpoints) - 1, \
@@ -100,14 +121,18 @@ class ReferencesComputer:
             }
 
     # Get cutpoints to split intersection by.
-    def _get_relevant_cutpoints(self, boundary, intersection):
+    def _get_relevant_cutpoints(
+        self,
+        boundary: Boundary,
+        intersection: LineString
+    ) -> List[Point]:
         start = Point(intersection.coords[0])
         end = Point(intersection.coords[-1])
 
         super_line = LineString(boundary.cutpoints)
         super_segments = self._get_segments_helper(
             super_line,
-            boundary.point_sort_key,
+            boundary.get_point_sort_key,
             boundary.line.length,
             [start, end],
         )

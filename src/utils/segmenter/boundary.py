@@ -62,7 +62,7 @@ class Boundary:
             or point.equals(start) \
             or point.equals(end)
 
-    def point_sort_key(self, point):
+    def get_point_sort_key(self, point):
         if point in self.sort_cache:
             return self.sort_cache[point]
 

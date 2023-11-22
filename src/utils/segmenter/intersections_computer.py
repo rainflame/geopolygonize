@@ -1,7 +1,15 @@
-from typing import List
+from typing import List, TypeAlias
 
-from shapely.geometry import LineString, Point
+from shapely import Geometry
+from shapely.geometry import \
+    GeometryCollection, \
+    LineString, \
+    MultiLineString, \
+    Point
 from rtree import index
+
+# A `Piece` is a `LineString` with just two coordinates: the endpoints.
+Piece: TypeAlias = LineString
 
 
 """
@@ -15,14 +23,14 @@ class IntersectionsComputer:
     ):
         self.boundaries = boundaries
 
-    def make_index(self):
+    def make_index(self) -> index.Index:
         boundary_idx = index.Index()
         for i, boundary in enumerate(self.boundaries):
             bbox = boundary.line.bounds
             boundary_idx.insert(i, bbox)
         return boundary_idx
 
-    def _line_string(self, ls):
+    def _line_string(self, ls: LineString) -> List[Piece]:
         if len(ls.coords) < 2:
             return []  # invalid segment, effectively skip
         else:
@@ -30,19 +38,19 @@ class IntersectionsComputer:
                 "Expect LineString from intersection to have only two points."
             return [ls]
 
-    def _multi_line_string(self, mls):
+    def _multi_line_string(self, mls: MultiLineString) -> List[Piece]:
         pieces = []
         for b in mls.geoms:
             pieces.extend(self._line_string(b))
         return pieces
 
-    def _geometry_collection(self, gc):
+    def _geometry_collection(self, gc: GeometryCollection) -> List[Piece]:
         pieces = []
         for g in gc.geoms:
             pieces.extend(self._handle(g))
         return pieces
 
-    def _handle(self, g):
+    def _handle(self, g: Geometry) -> List[Piece]:
         pieces = []
         if g.geom_type == "LineString":
             pieces = self._line_string(g)
@@ -55,7 +63,7 @@ class IntersectionsComputer:
             pass
         return pieces
 
-    def _get_connected_segments(self, pieces):
+    def _get_connected_segments(self, pieces: List[Piece]) -> List[LineString]:
         if len(pieces) == 0:
             return []
 

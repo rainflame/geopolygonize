@@ -49,7 +49,7 @@ class CutpointsComputer:
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
             boundary.cutpoints = list(set(boundary.cutpoints))
-            boundary.cutpoints.sort(key=boundary.point_sort_key)
+            boundary.cutpoints.sort(key=boundary.get_point_sort_key)
 
     def compute_cutpoints(self):
         self._use_cutpoints_from_neighbor_start_points()
