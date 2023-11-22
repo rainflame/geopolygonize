@@ -11,6 +11,9 @@ from .utils.blobifier import blobify
 from .utils.segmenter.segmenter import Segmenter
 
 
+EPSILON = 1.0e-10
+
+
 class GeoPolygonizerParameters:
     def __init__(
         self,
@@ -32,7 +35,18 @@ class GeoPolygonizerParameters:
             self.crs = self.meta['crs']
             self.transform = src.transform
             self.data = src.read(1)
-            self.res = src.res
+
+            if pixel_size == 0:
+                # assume pixel is square
+                assert abs(src.res[0] - src.res[1]) < EPSILON
+                self.pixel_size = abs(src.res[0])
+                if self.pixel_size == 0:
+                    raise RuntimeError(
+                        "Cannot infer pixel size from input file. "
+                        "Please input it manually using `--pixel-size`."
+                    )
+            else:
+                self.pixel_size = pixel_size
 
 
 def clean(tile, parameters):
@@ -70,12 +84,6 @@ def generate_simplify_func(pixel_size, simplification_pixel_window):
 
 
 def vectorize(tile, parameters):
-    pixel_size = parameters.pixel_size
-    # get the resolution from the input file if the user hasn't specified one
-    if pixel_size == 0:
-        pixel_size = abs(parameters.res[0])
-        parameters.pixel_size = pixel_size
-
     simplify = generate_simplify_func(
         parameters.pixel_size,
         parameters.simplification_pixel_window,

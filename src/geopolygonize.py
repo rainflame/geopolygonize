@@ -36,7 +36,7 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 )
 @click.option(
     '--pixel-size',
-    default=0,
+    default=0.0,
     type=float,
     help="Override the size of the pixels in units of the "
          "input file's coordinate reference system.",
