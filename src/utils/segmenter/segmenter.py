@@ -1,3 +1,6 @@
+from shapely import LineString, Polygon
+from typing import Callable, List
+
 from .area_computer import build as area_build, rebuild as area_rebuild
 from .boundary_computer import\
     build as boundary_build, \
@@ -6,15 +9,21 @@ from .segment_computer import build as segment_build, update as segment_update
 
 
 class Segmenter:
-    def __init__(self, polygons):
+    def __init__(
+        self,
+        polygons: List[Polygon]
+    ):
         self.polygons = polygons
 
         self._build()
 
-    def run_per_segment(self, per_segment_function):
+    def run_per_segment(
+        self,
+        per_segment_function: Callable[[LineString], LineString]
+    ):
         segment_update(self.segments, per_segment_function)
 
-    def get_result(self):
+    def get_result(self) -> List[Polygon]:
         self._rebuild()
 
         modified_polygons = [a.modified_polygon for a in self.areas]

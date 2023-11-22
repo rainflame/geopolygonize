@@ -8,7 +8,7 @@ import shutil
 
 import rasterio
 
-from .processing import process_tile, GeoPolygonizerParameters
+from .geopolygonizer import GeoPolygonizer
 from .utils.tiler import Tiler, TilerParameters
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -103,6 +103,9 @@ def cli(
         transform = src.transform
         res = src.res
 
+    endx = data.shape[0]
+    endy = data.shape[1]
+
     if pixel_size == 0:
         # assume pixel is square
         assert abs(res[0] - res[1]) < EPSILON
@@ -114,7 +117,7 @@ def cli(
             )
 
     try:
-        parameters = GeoPolygonizerParameters(
+        geopolygonizer = GeoPolygonizer(
             data=data,
             meta=meta,
             crs=crs,
@@ -128,15 +131,15 @@ def cli(
 
         temp_dir = tempfile.mkdtemp()
         tiler_parameters = TilerParameters(
-            data=parameters.data,
-            num_processes=workers,
+            endx=endx,
+            endy=endy,
             tile_size=tile_size,
+            num_processes=workers,
             temp_dir=temp_dir,
         )
         rz = Tiler(
             tiler_parameters=tiler_parameters,
-            process_tile=process_tile,
-            processer_parameters=parameters,
+            process_tile=geopolygonizer.process_tile,
         )
         gdf = rz.process()
         gdf.to_file(output_file)
