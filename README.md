@@ -60,4 +60,6 @@ Then run the CLI:
 python -m src.geopolygonize --input-file...
 ```
 
+Find test raster inputs [here](https://drive.google.com/drive/folders/1KiEPwjg9zhowBJEODQTJJ44VPrPkXC3_?usp=drive_link).
+
 \# TODO: API docs
