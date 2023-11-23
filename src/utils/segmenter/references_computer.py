@@ -22,7 +22,7 @@ class ReferencesComputer:
 
     def _consider_boundary_for_segments(self, curr_boundary):
         curr_boundary = self.boundaries[curr_boundary.idx]
-        curr_boundary.segment_idx_to_neighbors = [
+        curr_boundary.segment_idx_to_potential_reference_boundaries = [
             [(curr_boundary.idx, curr_boundary.segments[i], False)]
             for i in range(len(curr_boundary.segments))
         ]
@@ -46,7 +46,7 @@ class ReferencesComputer:
                         start, end, segment.line
                     )
                 other_boundary\
-                    .segment_idx_to_neighbors[
+                    .segment_idx_to_potential_reference_boundaries[
                         other_seg_idx
                     ] \
                     .append((curr_boundary.idx, segment, reverse))
@@ -96,7 +96,7 @@ class ReferencesComputer:
                             start, end, segment.line
                         )
                     other_boundary \
-                        .segment_idx_to_neighbors[
+                        .segment_idx_to_potential_reference_boundaries[
                             other_seg_idx
                         ] \
                         .append((curr_boundary.idx, segment, reverse))
@@ -118,7 +118,9 @@ class ReferencesComputer:
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
 
-            for i, nps in enumerate(boundary.segment_idx_to_neighbors):
+            for i, nps in enumerate(
+                boundary.segment_idx_to_potential_reference_boundaries
+            ):
                 _reference_idx, reference_segment, reverse = \
                     min(nps, key=lambda x: x[0])
                 boundary.segments[i].set_reference(reference_segment, reverse)

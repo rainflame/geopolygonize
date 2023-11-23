@@ -53,7 +53,7 @@ class Boundary:
         # they are expected to have all the same cutpoints between them.
         # Will be sorted before use.
         self.cutpoints = []
-        self.segment_idx_to_neighbors = None
+        self.segment_idx_to_potential_reference_boundaries = None
 
     def on_boundary(self, point):
         start = Point(self.line.coords[0])
