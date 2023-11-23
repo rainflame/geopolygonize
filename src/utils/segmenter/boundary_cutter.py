@@ -3,7 +3,7 @@ from typing import Callable, List
 from shapely.geometry import LineString, Point
 
 from .boundary import Boundary
-from .segment import Segment
+from .positioned_point import PositionedPoint
 
 
 class BoundaryCutter:
@@ -15,85 +15,90 @@ class BoundaryCutter:
         self.boundary = boundary
         self.cutpoints = cutpoints
 
-    def _get_positions(
-        self,
-        get_sort_key: Callable[[Point], float],
-        length: float,
-        points: List[Point]
-    ) -> List[float]:
-        positions: List[float] = []
-        for i, p in enumerate(points):
-            position = get_sort_key(p)
-            if i > 0 and position <= positions[i-1]:
-                position += length
-                assert position > positions[i-1], \
+        self._preprocess()
+
+    def _preprocess(self) -> None:
+        self.positioned_coords = self._get_positioned_coords()
+        self.positioned_cutpoints = self._get_positioned_cutpoints()
+
+    def _get_positioned_cutpoints(self) -> List[PositionedPoint]:
+        positioned_cutpoints: List[PositionedPoint] = []
+        for i, cutpoint in enumerate(self.cutpoints):
+            position = self.boundary.get_point_sort_key(cutpoint)
+            if i > 0 and position <= positioned_cutpoints[i-1].position:
+                position += self.boundary.line.length
+                assert position > positioned_cutpoints[i-1].position, \
                     "Expect current position to be " \
                     "greater than previous position."
-            positions.append(position)
-        return positions
+            positioned_cutpoint = PositionedPoint(cutpoint, position)
+            positioned_cutpoints.append(positioned_cutpoint)
+        return positioned_cutpoints
 
-    def _get_iterations(
-        self,
-        line: LineString,
-        get_sort_key: Callable[[Point], float],
-        length: float,
-    ) -> List[Point]:
-        line_points = [Point(c) for c in line.coords]
-        if line.is_ring:
-            line_points = line_points[:-1]
-        first_boundary = [(p, get_sort_key(p)) for p in line_points]
-        second_boundary = [(p, pos + length) for (p, pos) in first_boundary]
-        if line.is_ring:
-            second_boundary.append((line_points[0], 2*length))
+    def _get_positioned_coords(self) -> List[Point]:
+        coords = [Point(c) for c in self.boundary.line.coords]
+        if self.boundary.line.is_ring:
+            coords = coords[:-1]
+
+        first_boundary = [
+            PositionedPoint(coord, self.boundary.get_point_sort_key(coord))
+            for coord in coords
+        ]
+        second_boundary = [
+            PositionedPoint(
+                positioned_point.point,
+                positioned_point.position + self.boundary.line.length
+            ) for positioned_point in first_boundary
+        ]
+
+        if self.boundary.line.is_ring:
+            positioned_point = \
+                PositionedPoint(coords[0], 2*self.boundary.line.length)
+            second_boundary.append(positioned_point)
         return first_boundary + second_boundary
 
-    def _get_segments_helper(
-        self,
-        line: LineString,
-        get_sort_key: Callable[[Point], float],
-        length: float,
-        cutpoints: List[Point]
-    ) -> List[LineString]:
-        positions = self._get_positions(get_sort_key, length, cutpoints)
-        assert len(positions) == len(cutpoints), \
-            "Expect the number of positions to be " \
-            "the same as the number of cutpoints."
-        iterations = self._get_iterations(line, get_sort_key, length)
-
+    def _get_segments_helper(self) -> List[LineString]:
         segments = []
         segment_coords = None
         cutpoint_idx = 0
-        for (p, pos) in iterations:
-            if cutpoint_idx == len(cutpoints):
+        for positioned_coord in self.positioned_coords:
+            if cutpoint_idx == len(self.positioned_cutpoints):
                 break
 
-            if pos < positions[cutpoint_idx]:
+            if positioned_coord.position \
+                    < self.positioned_cutpoints[cutpoint_idx].position:
                 if segment_coords is None:
                     continue
                 else:
-                    segment_coords.append(p)
+                    segment_coords.append(positioned_coord.point)
             else:
                 if segment_coords is None:
                     segment_coords = []
-                while cutpoint_idx < len(cutpoints) \
-                        and pos >= positions[cutpoint_idx]:
-                    segment_coords.append(cutpoints[cutpoint_idx])
+                while cutpoint_idx < len(self.positioned_cutpoints) \
+                        and positioned_coord.position \
+                        >= self.positioned_cutpoints[cutpoint_idx].position:
+                    segment_coords.append(
+                        self.positioned_cutpoints[cutpoint_idx].point
+                    )
                     if cutpoint_idx > 0:
                         segments.append(LineString(segment_coords))
-                        segment_coords = [cutpoints[cutpoint_idx]]
-                        if pos > positions[cutpoint_idx] \
-                                and pos < positions[cutpoint_idx+1]:
-                            segment_coords.append(p)
+                        segment_coords = [
+                            self.positioned_cutpoints[cutpoint_idx].point
+                        ]
+                        if positioned_coord.position \
+                                > self.positioned_cutpoints[
+                                    cutpoint_idx
+                                ].position \
+                                and positioned_coord.position \
+                                < self.positioned_cutpoints[
+                                    cutpoint_idx+1
+                                ].position:
+                            segment_coords.append(positioned_coord.point)
                     cutpoint_idx += 1
 
         return segments
 
     def cut_boundary(self) -> List[LineString]:
-        segments = self._get_segments_helper(
-            self.boundary.line,
-            self.boundary.get_point_sort_key,
-            self.boundary.line.length, self.cutpoints,
-        )
+        segments = self._get_segments_helper()
         assert len(segments) == len(self.cutpoints) - 1, \
             "Expect number of segments to be one " \
             "less than number of inputted cutpoints."
