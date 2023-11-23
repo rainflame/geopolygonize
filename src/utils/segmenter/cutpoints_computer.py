@@ -6,6 +6,8 @@ from shapely.geometry import LineString, Point
 """
 Computes cutpoints of boundaries by which to then split them into segments.
 """
+
+
 class CutpointsComputer:
     def __init__(
         self,
