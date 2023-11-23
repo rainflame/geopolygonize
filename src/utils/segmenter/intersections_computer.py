@@ -1,4 +1,4 @@
-from typing import List, TypeAlias
+from typing import Dict, List, Set
 
 from shapely import Geometry
 from shapely.geometry import \
@@ -8,14 +8,15 @@ from shapely.geometry import \
     Point
 from rtree import index
 
-# A `Piece` is a `LineString` with just two coordinates: the endpoints.
-Piece: TypeAlias = LineString
+from .piece import Piece
 
 
 """
 Computes intersections between boundaries, each of which keeps a record
 of which other boundaries it intersected with and where.
 """
+
+
 class IntersectionsComputer:
     def __init__(
         self,
@@ -23,7 +24,7 @@ class IntersectionsComputer:
     ):
         self.boundaries = boundaries
 
-    def make_index(self) -> index.Index:
+    def _make_index(self) -> index.Index:
         boundary_idx = index.Index()
         for i, boundary in enumerate(self.boundaries):
             bbox = boundary.line.bounds
@@ -33,10 +34,7 @@ class IntersectionsComputer:
     def _line_string(self, ls: LineString) -> List[Piece]:
         if len(ls.coords) < 2:
             return []  # invalid segment, effectively skip
-        else:
-            assert len(ls.coords) == 2, \
-                "Expect LineString from intersection to have only two points."
-            return [ls]
+        return [Piece(ls)]
 
     def _multi_line_string(self, mls: MultiLineString) -> List[Piece]:
         pieces = []
@@ -63,54 +61,92 @@ class IntersectionsComputer:
             pass
         return pieces
 
+    def _get_connected_segment(
+        self,
+        start_map: Dict[Point, Piece],
+        end_map: Dict[Point, Piece],
+        unvisited: Set[Piece],
+        piece: Piece,
+    ) -> LineString:
+        start = piece.get_start()
+        end = piece.get_end()
+
+        curr = start
+        former_section = [start]
+        while curr in end_map:
+            prev_piece = end_map[curr]
+            curr = prev_piece.get_start()
+            former_section.append(curr)
+            if prev_piece not in unvisited:
+                break  # reached termination in former half of segment
+            unvisited.remove(prev_piece)
+
+        is_ring = len(former_section) > 2 \
+            and Point(former_section[-1]) == start
+        if is_ring:
+            latter_section = []
+        else:
+            curr = end
+            latter_section = [end]
+            while curr in start_map:
+                next_piece = start_map[curr]
+                curr = Point(next_piece.get_end())
+                latter_section.append(curr)
+                if next_piece not in unvisited:
+                    break  # reached termination in latter half of segment
+                unvisited.remove(next_piece)
+
+        segment = LineString(former_section[::-1] + latter_section)
+        return segment
+
     def _get_connected_segments(self, pieces: List[Piece]) -> List[LineString]:
         if len(pieces) == 0:
             return []
 
-        start_map = {}
-        end_map = {}
+        start_map: Dict[Point, Piece] = {}
+        end_map: Dict[Point, Piece] = {}
         for p in pieces:
-            assert len(p.coords) == 2, \
-                "Expect each piece to have only two points."
-            start_map[Point(p.coords[0])] = p
-            end_map[Point(p.coords[-1])] = p
+            start_map[p.get_start()] = p
+            end_map[p.get_end()] = p
 
         segments = []
         unvisited = set(pieces)
         while len(unvisited) > 0:
             piece = unvisited.pop()
-            start = Point(piece.coords[0])
-            end = Point(piece.coords[-1])
-
-            curr = start
-            former_section = [start]
-            while curr in end_map:
-                prev_piece = end_map[curr]
-                curr = Point(prev_piece.coords[0])
-                former_section.append(curr)
-                if prev_piece not in unvisited:
-                    break  # reached termination in former half of segment
-                unvisited.remove(prev_piece)
-
-            is_ring = len(former_section) > 2 \
-                and Point(former_section[-1]) == start
-            if is_ring:
-                latter_section = []
-            else:
-                curr = end
-                latter_section = [end]
-                while curr in start_map:
-                    next_piece = start_map[curr]
-                    curr = Point(next_piece.coords[-1])
-                    latter_section.append(curr)
-                    if next_piece not in unvisited:
-                        break  # reached termination in latter half of segment
-                    unvisited.remove(next_piece)
-
-            segment = LineString(former_section[::-1] + latter_section)
+            segment = self._get_connected_segment(
+                start_map,
+                end_map,
+                unvisited,
+                piece
+            )
             segments.append(segment)
 
         return segments
+
+    def _compute_intersection(self, curr, other):
+        intersection = curr.line.intersection(other.line)
+        intersection_pieces = self._handle(intersection)
+
+        intersection_segments =\
+            self._get_connected_segments(intersection_pieces)
+        if len(intersection_segments) == 0:
+            return
+
+        is_ring = False
+        for intersection_segment in intersection_segments:
+            if intersection_segment.is_ring:
+                is_ring = True
+
+        if is_ring:
+            assert len(intersection_segments) == 1, \
+                "If the intersection with another boundary is a "\
+                "ring, expect the ring to be the only intersection."
+            ring = intersection_segments[0]
+            curr.ring_intersections[other.idx] = ring
+            other.ring_intersections[curr.idx] = ring
+        else:
+            curr.intersections[other.idx] = intersection_segments
+            other.intersections[curr.idx] = intersection_segments
 
     def compute_intersections(self):
         boundary_idx = self._make_index()
@@ -118,34 +154,11 @@ class IntersectionsComputer:
         for b in range(len(self.boundaries)):
             curr_boundary = self.boundaries[b]
 
-            for n in boundary_idx.intersection(curr_boundary.line.bounds):
-                if n == b:
+            for o in boundary_idx.intersection(curr_boundary.line.bounds):
+                if o == b:
                     continue
-                if n < b:
+                if o < b:
                     continue  # handled already
-                other_boundary = self.boundaries[n]
+                other_boundary = self.boundaries[o]
 
-                intersection =\
-                    curr_boundary.line.intersection(other_boundary.line)
-                intersection_pieces = self._handle(intersection)
-
-                intersection_segments =\
-                    self._get_connected_segments(intersection_pieces)
-                if len(intersection_segments) == 0:
-                    continue
-
-                is_ring = False
-                for intersection_segment in intersection_segments:
-                    if intersection_segment.is_ring:
-                        is_ring = True
-
-                if is_ring:
-                    assert len(intersection_segments) == 1, \
-                        "If the intersection with another boundary is a "\
-                        "ring, expect the ring to be the only intersection."
-                    ring = intersection_segments[0]
-                    curr_boundary.ring_intersections[n] = ring
-                    other_boundary.ring_intersections[b] = ring
-                else:
-                    curr_boundary.intersections[n] = intersection_segments
-                    other_boundary.intersections[b] = intersection_segments
+                self._compute_intersection(curr_boundary, other_boundary)
