@@ -5,6 +5,7 @@ from .area import Area
 from .boundary import Boundary
 from .intersections_computer import IntersectionsComputer
 from .cutpoints_computer import CutpointsComputer
+from .mapping_computer import MappingComputer
 from .references_computer import ReferencesComputer
 
 
@@ -80,6 +81,7 @@ class Segmenter:
     def _segment_build(self):
         IntersectionsComputer(self.boundaries).compute_intersections()
         CutpointsComputer(self.boundaries).compute_cutpoints()
+        MappingComputer(self.boundaries).compute_mapping()
         ReferencesComputer(self.boundaries).compute_references()
 
         segments = []

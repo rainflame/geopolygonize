@@ -6,14 +6,7 @@ from .boundary import Boundary
 from .segment import Segment
 
 
-"""
-Identifies boundaries that share a common segment and determines
-the reference segment object from which duplicates of the segment
-in the boundaries should copy from.
-"""
-
-
-class ReferencesComputer:
+class MappingComputer:
     def __init__(
         self,
         boundaries: List[LineString],
@@ -122,91 +115,5 @@ class ReferencesComputer:
                 (s.start, s.end): i for i, s in enumerate(boundary.segments)
             }
 
-    # Get cutpoints to split intersection by.
-    def _get_relevant_cutpoints(
-        self,
-        boundary: Boundary,
-        intersection: LineString
-    ) -> List[Point]:
-        start = Point(intersection.coords[0])
-        end = Point(intersection.coords[-1])
-
-        super_line = LineString(boundary.cutpoints)
-        super_segments = self._get_segments_helper(
-            super_line,
-            boundary.get_point_sort_key,
-            boundary.line.length,
-            [start, end],
-        )
-        super_segment = super_segments[0]
-
-        relevant_cutpoints = [Point(c) for c in super_segment.coords]
-        return relevant_cutpoints
-
-    def _compute_boundaries_per_segment(self):
-        for b in range(len(self.boundaries)):
-            curr_boundary = self.boundaries[b]
-            curr_boundary.segment_idx_to_neighbors = [
-                [(b, curr_boundary.segments[i], False)]
-                for i in range(len(curr_boundary.segments))
-            ]
-
-        for b in range(len(self.boundaries)):
-            curr_boundary = self.boundaries[b]
-
-            for n in curr_boundary.ring_intersections:
-                if n <= b:
-                    continue
-                other_boundary = self.boundaries[n]
-                cutpoints_with_end =\
-                    curr_boundary.cutpoints + [curr_boundary.cutpoints[0]]
-                for i in range(len(cutpoints_with_end)-1):
-                    start = cutpoints_with_end[i]
-                    end = cutpoints_with_end[i+1]
-                    segment = curr_boundary.get_segment(start, end)
-
-                    other_seg_idx, reverse = \
-                        other_boundary.get_segment_idx_and_reverse(
-                            start, end, segment.line
-                        )
-                    other_boundary.segment_idx_to_neighbors[other_seg_idx] \
-                        .append((b, segment, reverse))
-
-            for n, intersection_segments \
-                    in curr_boundary.intersections.items():
-                if n <= b:
-                    continue  # handled already
-                other_boundary = self.boundaries[n]
-
-                for intersection_segment in intersection_segments:
-                    rel_cutpoints = self._get_relevant_cutpoints(
-                        curr_boundary,
-                        intersection_segment,
-                    )
-
-                    for i in range(len(rel_cutpoints)-1):
-                        start = rel_cutpoints[i]
-                        end = rel_cutpoints[i+1]
-                        segment = curr_boundary.get_segment(start, end)
-
-                        other_seg_idx, reverse = \
-                            other_boundary.get_segment_idx_and_reverse(
-                                start, end, segment.line
-                            )
-                        other_boundary \
-                            .segment_idx_to_neighbors[other_seg_idx] \
-                            .append((b, segment, reverse))
-
-    def _compute_reference_per_segment(self):
-        for b in range(len(self.boundaries)):
-            boundary = self.boundaries[b]
-
-            for i, nps in enumerate(boundary.segment_idx_to_neighbors):
-                _reference_idx, reference_segment, reverse = \
-                    min(nps, key=lambda x: x[0])
-                boundary.segments[i].set_reference(reference_segment, reverse)
-
-    def compute_references(self):
+    def compute_mapping(self):
         self._compute_segments_per_boundary()
-        self._compute_boundaries_per_segment()
-        self._compute_reference_per_segment()
