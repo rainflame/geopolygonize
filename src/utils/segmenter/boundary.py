@@ -1,6 +1,8 @@
 from shapely.geometry import LineString, Point
 from rtree import index
 
+from .orientation import Orientation
+
 
 class Boundary:
     def __init__(self, idx, boundary):
@@ -11,13 +13,6 @@ class Boundary:
 
         # If N boundaries share a segment, the reference boundary
         # is the boundary with the min idx.
-        # We can perform non-deterministic processing on the segment
-        # once and only once, therefore ensuring no gaps
-        # appear between boundaries that share the segment.
-        # Even deterministic processing may output different results
-        # for the same segment oriented differently
-        # (start and end being the same versus reversed).
-        # Segments are oriented based on where they exist along the boundary.
         self.segment_map = {}
         self.segments = []
 
@@ -87,13 +82,13 @@ class Boundary:
         self.sort_cache[point] = distance
         return distance
 
-    def get_segment_idx_and_reverse(self, start, end, line):
+    def get_segment_idx_and_orientation(self, start, end, line):
         if len(self.segments) == 1:
             if (start, end) in self.segment_map:
                 assert start == end
                 seg_idx = self.segment_map[(start, end)]
                 assert seg_idx == 0
-                reverse = False
+                orientation = Orientation.FORWARD
             else:
                 raise Exception(
                     "Could not find segment idx "
@@ -108,16 +103,16 @@ class Boundary:
 
             if first_segment.line.equals(line):
                 seg_idx = first_seg_idx
-                reverse = False
+                orientation = Orientation.FORWARD
             elif first_segment.line.equals(reverse_line):
                 seg_idx = first_seg_idx
-                reverse = True
+                orientation = Orientation.BACKWARD
             elif second_segment.line.equals(line):
                 seg_idx = second_seg_idx
-                reverse = True
+                orientation = Orientation.BACKWARD
             elif second_segment.line.equals(reverse_line):
                 seg_idx = second_seg_idx
-                reverse = False
+                orientation = Orientation.FORWARD
             else:
                 raise Exception(
                     "Could not find segment idx for "
@@ -126,17 +121,17 @@ class Boundary:
         else:
             if (start, end) in self.segment_map:
                 seg_idx = self.segment_map[(start, end)]
-                reverse = False
+                orientation = Orientation.FORWARD
             elif (end, start) in self.segment_map:
                 seg_idx = self.segment_map[(end, start)]
-                reverse = True
+                orientation = Orientation.BACKWARD
             else:
                 raise Exception(
                     "Could not find segment idx "
                     "for given start and end points."
                 )
 
-        return seg_idx, reverse
+        return seg_idx, orientation
 
     def get_segment(self, start, end):
         seg_idx = self.segment_map[(start, end)]

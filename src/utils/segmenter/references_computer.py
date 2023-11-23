@@ -41,15 +41,15 @@ class ReferencesComputer:
                 end = cutpoints_with_end[i+1]
                 segment = curr_boundary.get_segment(start, end)
 
-                other_seg_idx, reverse = \
-                    other_boundary.get_segment_idx_and_reverse(
+                other_seg_idx, orientation = \
+                    other_boundary.get_segment_idx_and_orientation(
                         start, end, segment.line
                     )
                 other_boundary\
                     .segment_idx_to_potential_reference_boundaries[
                         other_seg_idx
                     ] \
-                    .append((curr_boundary.idx, segment, reverse))
+                    .append((curr_boundary.idx, segment, orientation))
 
     # Get cutpoints to split intersection by.
     def _get_relevant_cutpoints(
@@ -91,15 +91,15 @@ class ReferencesComputer:
                     end = rel_cutpoints[i+1]
                     segment = curr_boundary.get_segment(start, end)
 
-                    other_seg_idx, reverse = \
-                        other_boundary.get_segment_idx_and_reverse(
+                    other_seg_idx, orientation = \
+                        other_boundary.get_segment_idx_and_orientation(
                             start, end, segment.line
                         )
                     other_boundary \
                         .segment_idx_to_potential_reference_boundaries[
                             other_seg_idx
                         ] \
-                        .append((curr_boundary.idx, segment, reverse))
+                        .append((curr_boundary.idx, segment, orientation))
 
     def _compute_reference_options_per_segment(self):
         for b in range(len(self.boundaries)):
@@ -121,9 +121,12 @@ class ReferencesComputer:
             for i, nps in enumerate(
                 boundary.segment_idx_to_potential_reference_boundaries
             ):
-                _reference_idx, reference_segment, reverse = \
+                _reference_idx, reference_segment, orientation = \
                     min(nps, key=lambda x: x[0])
-                boundary.segments[i].set_reference(reference_segment, reverse)
+                boundary.segments[i].set_reference(
+                    reference_segment,
+                    orientation
+                )
 
     def compute_references(self):
         self._compute_reference_options_per_segment()
