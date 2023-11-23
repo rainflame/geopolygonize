@@ -56,10 +56,11 @@ class BoundaryCutter:
             second_boundary.append(positioned_point)
         return first_boundary + second_boundary
 
-    def _get_segments_helper(self) -> List[LineString]:
-        segments = []
-        segment_coords = None
-        cutpoint_idx = 0
+    def _append_segments_between_cutpoints(self) -> List[LineString]:
+        segments: List[LineString] = []
+        segment_coords: None | List[Point] = None
+        cutpoint_idx: int = 0
+
         for positioned_coord in self.positioned_coords:
             if cutpoint_idx == len(self.positioned_cutpoints):
                 break
@@ -98,7 +99,7 @@ class BoundaryCutter:
         return segments
 
     def cut_boundary(self) -> List[LineString]:
-        segments = self._get_segments_helper()
+        segments = self._append_segments_between_cutpoints()
         assert len(segments) == len(self.cutpoints) - 1, \
             "Expect number of segments to be one " \
             "less than number of inputted cutpoints."
