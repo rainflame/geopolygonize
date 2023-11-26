@@ -27,14 +27,18 @@ class Segment(object):
         self,
         segment #: Segment,
     ) -> None:
-        self.reference = segment
-        self.orientation = \
-            self.boundary.get_orientation(self.reference)
+        self._reference = segment
+        self._orientation = \
+            self.boundary.get_orientation(self._reference)
+
+    def is_reference(self) -> bool:
+        assert self._reference is not None
+        return self.boundary.idx == self._reference.boundary.idx
 
     def rebuild(self) -> None:
-        if self.orientation == Orientation.BACKWARD:
+        if self._orientation == Orientation.BACKWARD:
             self.modified_line = LineString(
-                self.reference.modified_line.coords[::-1]
+                self._reference.modified_line.coords[::-1]
             )
         else:
-            self.modified_line = self.reference.modified_line
+            self.modified_line = self._reference.modified_line

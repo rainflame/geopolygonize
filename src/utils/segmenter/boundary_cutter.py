@@ -18,8 +18,8 @@ class BoundaryCutter:
         self._preprocess()
 
     def _preprocess(self) -> None:
-        self.positioned_coords = self._get_positioned_coords()
-        self.positioned_cutpoints = self._get_positioned_cutpoints()
+        self._positioned_coords = self._get_positioned_coords()
+        self._positioned_cutpoints = self._get_positioned_cutpoints()
 
     def _get_positioned_cutpoints(self) -> List[PositionedPoint]:
         positioned_cutpoints: List[PositionedPoint] = []
@@ -61,12 +61,12 @@ class BoundaryCutter:
         segment_coords: None | List[Point] = None
         cutpoint_idx: int = 0
 
-        for positioned_coord in self.positioned_coords:
-            if cutpoint_idx == len(self.positioned_cutpoints):
+        for positioned_coord in self._positioned_coords:
+            if cutpoint_idx == len(self._positioned_cutpoints):
                 break
 
             if positioned_coord.position \
-                    < self.positioned_cutpoints[cutpoint_idx].position:
+                    < self._positioned_cutpoints[cutpoint_idx].position:
                 if segment_coords is None:
                     continue
                 else:
@@ -74,23 +74,23 @@ class BoundaryCutter:
             else:
                 if segment_coords is None:
                     segment_coords = []
-                while cutpoint_idx < len(self.positioned_cutpoints) \
+                while cutpoint_idx < len(self._positioned_cutpoints) \
                         and positioned_coord.position \
-                        >= self.positioned_cutpoints[cutpoint_idx].position:
+                        >= self._positioned_cutpoints[cutpoint_idx].position:
                     segment_coords.append(
-                        self.positioned_cutpoints[cutpoint_idx].point
+                        self._positioned_cutpoints[cutpoint_idx].point
                     )
                     if cutpoint_idx > 0:
                         segments.append(LineString(segment_coords))
                         segment_coords = [
-                            self.positioned_cutpoints[cutpoint_idx].point
+                            self._positioned_cutpoints[cutpoint_idx].point
                         ]
                         if positioned_coord.position \
-                                > self.positioned_cutpoints[
+                                > self._positioned_cutpoints[
                                     cutpoint_idx
                                 ].position \
                                 and positioned_coord.position \
-                                < self.positioned_cutpoints[
+                                < self._positioned_cutpoints[
                                     cutpoint_idx+1
                                 ].position:
                             segment_coords.append(positioned_coord.point)

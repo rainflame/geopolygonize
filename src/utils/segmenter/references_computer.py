@@ -118,7 +118,7 @@ class ReferencesComputer:
                 )
                 segment.set_reference(reference)
 
-                if boundary.idx == segment.reference.boundary.idx:
+                if segment.is_reference():
                     references.append(reference)
 
         return references

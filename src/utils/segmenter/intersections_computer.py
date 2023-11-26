@@ -69,29 +69,26 @@ class IntersectionsComputer:
         unvisited: Set[Piece],
         piece: Piece,
     ) -> LineString:
-        start = piece.get_start()
-        end = piece.get_end()
-
-        curr = start
-        former_section = [start]
+        curr = piece.start
+        former_section = [piece.start]
         while curr in end_map:
             prev_piece = end_map[curr]
-            curr = prev_piece.get_start()
+            curr = prev_piece.start
             former_section.append(curr)
             if prev_piece not in unvisited:
                 break  # reached termination in former half of segment
             unvisited.remove(prev_piece)
 
         is_ring = len(former_section) > 2 \
-            and Point(former_section[-1]) == start
+            and Point(former_section[-1]) == piece.start
         if is_ring:
             latter_section = []
         else:
-            curr = end
-            latter_section = [end]
+            curr = piece.end
+            latter_section = [piece.end]
             while curr in start_map:
                 next_piece = start_map[curr]
-                curr = Point(next_piece.get_end())
+                curr = Point(next_piece.end)
                 latter_section.append(curr)
                 if next_piece not in unvisited:
                     break  # reached termination in latter half of segment
@@ -107,8 +104,8 @@ class IntersectionsComputer:
         start_map: Dict[Point, Piece] = {}
         end_map: Dict[Point, Piece] = {}
         for p in pieces:
-            start_map[p.get_start()] = p
-            end_map[p.get_end()] = p
+            start_map[p.start] = p
+            end_map[p.end] = p
 
         segments = []
         unvisited = set(pieces)
