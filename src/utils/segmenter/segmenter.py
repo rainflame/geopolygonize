@@ -22,9 +22,11 @@ class Segmenter:
         self,
         per_segment_function: Callable[[LineString], LineString]
     ):
-        for segment in self.segments:
-            modified_line = per_segment_function(segment.modified_line)
-            segment.modified_line = modified_line
+        for reference in self.references:
+            modified_line = per_segment_function(
+                reference.modified_line
+            )
+            reference.modified_line = modified_line
 
     def get_result(self) -> List[Polygon]:
         self._rebuild()
@@ -35,7 +37,7 @@ class Segmenter:
     def _build(self):
         self._area_build()
         self._boundary_build()
-        self._segment_build()
+        self._reference_build()
 
     def _rebuild(self):
         self._boundary_rebuild()
@@ -78,16 +80,9 @@ class Segmenter:
             boundary = self.boundaries[b]
             boundary.rebuild()
 
-    def _segment_build(self):
+    def _reference_build(self):
         IntersectionsComputer(self.boundaries).compute_intersections()
         CutpointsComputer(self.boundaries).compute_cutpoints()
         MappingComputer(self.boundaries).compute_mapping()
-        ReferencesComputer(self.boundaries).compute_references()
-
-        segments = []
-        for b in range(len(self.boundaries)):
-            boundary = self.boundaries[b]
-            for segment in boundary.segments:
-                if boundary.idx == segment.reference.boundary.idx:
-                    segments.append(segment)
-        self.segments = segments
+        references = ReferencesComputer(self.boundaries).compute_references()
+        self.references = references

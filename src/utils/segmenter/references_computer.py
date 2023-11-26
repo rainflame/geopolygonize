@@ -22,34 +22,23 @@ class ReferencesComputer:
 
     def _consider_boundary_for_segments(self, curr_boundary):
         curr_boundary = self.boundaries[curr_boundary.idx]
-        curr_boundary.segment_idx_to_potential_reference_boundaries = [
-            [(curr_boundary.idx, curr_boundary.segments[i], False)]
-            for i in range(len(curr_boundary.segments))
-        ]
+        for i, segment in enumerate(curr_boundary.segments):
+            curr_boundary.add_potential_reference(segment)
 
-    def _consider_neighbor_for_loop_segments(self, curr_boundary):
-        for o in curr_boundary.ring_intersections:
+    def _consider_neighbor_for_ring_segments(self, curr_boundary):
+        for o, _ring in curr_boundary.get_ring_intersections():
             if o <= curr_boundary.idx:
                 continue
             other_boundary = self.boundaries[o]
 
-            cutpoints_with_end =\
-                curr_boundary.cutpoints + [curr_boundary.cutpoints[0]]
+            cutpoints = curr_boundary.get_cutpoints()
+            cutpoints_with_end = cutpoints + [cutpoints[0]]
 
             for i in range(len(cutpoints_with_end)-1):
                 start = cutpoints_with_end[i]
                 end = cutpoints_with_end[i+1]
                 segment = curr_boundary.get_segment(start, end)
-
-                other_seg_idx, orientation = \
-                    other_boundary.get_segment_idx_and_orientation(
-                        start, end, segment.line
-                    )
-                other_boundary\
-                    .segment_idx_to_potential_reference_boundaries[
-                        other_seg_idx
-                    ] \
-                    .append((curr_boundary.idx, segment, orientation))
+                other_boundary.add_potential_reference(segment)
 
     # Get cutpoints to split intersection by.
     def _get_relevant_cutpoints(
@@ -60,7 +49,8 @@ class ReferencesComputer:
         start = Point(intersection.coords[0])
         end = Point(intersection.coords[-1])
 
-        cutpoints_with_end = boundary.cutpoints + [boundary.cutpoints[0]]
+        cutpoints = boundary.get_cutpoints()
+        cutpoints_with_end = cutpoints + [cutpoints[0]]
         boundary_with_just_cutpoints = \
             Boundary(-1, LineString(cutpoints_with_end))
         boundary_cutter = BoundaryCutter(
@@ -75,7 +65,7 @@ class ReferencesComputer:
 
     def _consider_neighbor_for_line_segments(self, curr_boundary):
         for o, intersection_segments \
-                in curr_boundary.intersections.items():
+                in curr_boundary.get_intersections():
             if o <= curr_boundary.idx:
                 continue  # handled already
             other_boundary = self.boundaries[o]
@@ -90,16 +80,7 @@ class ReferencesComputer:
                     start = rel_cutpoints[i]
                     end = rel_cutpoints[i+1]
                     segment = curr_boundary.get_segment(start, end)
-
-                    other_seg_idx, orientation = \
-                        other_boundary.get_segment_idx_and_orientation(
-                            start, end, segment.line
-                        )
-                    other_boundary \
-                        .segment_idx_to_potential_reference_boundaries[
-                            other_seg_idx
-                        ] \
-                        .append((curr_boundary.idx, segment, orientation))
+                    other_boundary.add_potential_reference(segment)
 
     def _compute_reference_options_per_segment(self):
         for b in range(len(self.boundaries)):
@@ -108,26 +89,31 @@ class ReferencesComputer:
 
         for b in range(len(self.boundaries)):
             curr_boundary = self.boundaries[b]
-            self._consider_neighbor_for_loop_segments(curr_boundary)
+            self._consider_neighbor_for_ring_segments(curr_boundary)
 
         for b in range(len(self.boundaries)):
             curr_boundary = self.boundaries[b]
             self._consider_neighbor_for_line_segments(curr_boundary)
 
-    def _choose_reference_option_per_segment(self):
+    def _choose_references(self):
+        references = []
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
 
-            for i, nps in enumerate(
-                boundary.segment_idx_to_potential_reference_boundaries
-            ):
-                _reference_idx, reference_segment, orientation = \
-                    min(nps, key=lambda x: x[0])
-                boundary.segments[i].set_reference(
-                    reference_segment,
-                    orientation
+            for segment, potential_references in \
+                    boundary.get_segments_with_potential_references():
+                reference = min(
+                    potential_references,
+                    key=lambda r: r.boundary.idx
                 )
+                segment.set_reference(reference)
+
+                if boundary.idx == segment.reference.boundary.idx:
+                    references.append(reference)
+
+        return references
 
     def compute_references(self):
         self._compute_reference_options_per_segment()
-        self._choose_reference_option_per_segment()
+        references = self._choose_references()
+        return references

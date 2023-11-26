@@ -1,10 +1,15 @@
+from dataclasses import dataclass
+
 from shapely.geometry import Point
 from shapely.geometry import LineString
 
 from .orientation import Orientation
 
 
-class Segment:
+class Segment(object):
+    def __enter__(self) -> 'Segment':
+        return self
+
     def __init__(self, boundary, line):
         self.boundary = boundary
         self.line = line
@@ -16,9 +21,13 @@ class Segment:
         # which will update this value based on its previous value.
         self.modified_line = self.line
 
-    def set_reference(self, reference, orientation):
-        self.reference = reference
-        self.orientation = orientation
+    def set_reference(
+        self,
+        segment #: Segment,
+    ):
+        self.reference = segment
+        self.orientation = \
+            self.boundary.get_orientation(self.reference)
 
     def rebuild(self):
         if self.orientation == Orientation.BACKWARD:

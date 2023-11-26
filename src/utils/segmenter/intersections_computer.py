@@ -142,11 +142,11 @@ class IntersectionsComputer:
                 "If the intersection with another boundary is a "\
                 "ring, expect the ring to be the only intersection."
             ring = intersection_segments[0]
-            curr.ring_intersections[other.idx] = ring
-            other.ring_intersections[curr.idx] = ring
+            curr.add_ring_intersection(other, ring)
+            other.add_ring_intersection(curr, ring)
         else:
-            curr.intersections[other.idx] = intersection_segments
-            other.intersections[curr.idx] = intersection_segments
+            curr.add_intersection(other, intersection_segments)
+            other.add_intersection(curr, intersection_segments)
 
     def compute_intersections(self):
         boundary_idx = self._make_index()

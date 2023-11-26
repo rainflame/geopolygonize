@@ -17,16 +17,13 @@ class MappingComputer:
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
 
-            cutpoints_with_end = boundary.cutpoints + [boundary.cutpoints[0]]
+            cutpoints = boundary.get_cutpoints()
+            cutpoints_with_end = cutpoints + [cutpoints[0]]
             boundary_cutter = BoundaryCutter(boundary, cutpoints_with_end)
-            segment_lines = boundary_cutter.cut_boundary()
-            boundary.segments = [Segment(boundary, sl) for sl in segment_lines]
-            assert len(boundary.cutpoints) == len(boundary.segments), \
-                "Expect number of segments " \
-                "to equal number of cutpoints."
-            boundary.segment_map = {
-                (s.start, s.end): i for i, s in enumerate(boundary.segments)
-            }
+            segments = [
+                Segment(boundary, sl) for sl in boundary_cutter.cut_boundary()
+            ]
+            boundary.set_segments(segments)
 
     def compute_mapping(self):
         self._compute_segments_per_boundary()
