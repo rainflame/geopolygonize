@@ -1,30 +1,36 @@
+from sortedcontainers import SortedDict
+from typing import Dict, ItemsView, List, Tuple, TypeAlias
+
 from shapely.geometry import LineString, Point
 from rtree import index
 
+from .orientation import Orientation
+from .segment import Segment
 
-class Boundary:
-    def __init__(self, idx, boundary):
+NeighborIdx: TypeAlias = int
+
+
+class Boundary(object):
+    def __enter__(self) -> 'Boundary':
+        return self
+
+    def __init__(
+        self,
+        idx: int,
+        boundary: LineString,
+    ) -> None:
         self.idx = idx
         self.line = LineString(boundary.coords)
-        self.setup_sort_cache()
-        self.setup_temporary_variables()
+        self._setup_sort_cache()
+        self._setup_temporary_variables()
 
-        # If N boundaries share a segment, the reference boundary
-        # is the boundary with the min idx.
-        # We can perform non-deterministic processing on the segment
-        # once and only once, therefore ensuring no gaps
-        # appear between boundaries that share the segment.
-        # Even deterministic processing may output different results
-        # for the same segment oriented differently
-        # (start and end being the same versus reversed).
-        # Segments are oriented based on where they exist along the boundary.
-        self.segment_map = {}
-        self.segments = []
+        self._segment_map: Dict[Tuple[int, int], int] | None = None
+        self.segments: List[Segment] = []
 
-        self.modified_line = None
+        self.modified_line: LineString | None = None
 
-    def setup_sort_cache(self):
-        self.sort_cache = {}
+    def _setup_sort_cache(self) -> None:
+        self._sort_cache: Dict[Point, float] = {}
 
         start = Point(self.line.coords[0])
         self.cumulative_distances = {start: 0}
@@ -36,40 +42,41 @@ class Boundary:
                 self.cumulative_distances[seg_start] + segment.length
         # end is same as beginning
 
-        self.seg_idx = index.Index()
+        self._seg_idx = index.Index()
         for i in range(len(self.line.coords) - 1):
             segment = LineString(
                 [self.line.coords[i], self.line.coords[i + 1]]
             )
             bbox = segment.bounds
-            self.seg_idx.insert(i, bbox)
+            self._seg_idx.insert(i, bbox)
 
-    def setup_temporary_variables(self):
-        self.ring_intersections = {}  # neighbor idx -> ring
-        self.intersections = {}  # neighbor idx -> intersection segments
+    def _setup_temporary_variables(self) -> None:
+        self._ring_intersections: Dict[NeighborIdx, LineString] = {}
+        self._intersections: Dict[NeighborIdx, List[LineString]] = {}
 
         # Cutpoints are points that define the endpoints of the segments.
         # If boundaries A and B share an intersection,
         # they are expected to have all the same cutpoints between them.
-        # Will be sorted before use.
-        self.cutpoints = []
-        self.segment_idx_to_neighbors = None
+        self._cutpoints = SortedDict()
 
-    def on_boundary(self, point):
+        # Index i is potential references for self.segments[i].
+        self._potential_references: List[List[Segment]] = []
+
+    def on_boundary(self, point: Point) -> bool:
         start = Point(self.line.coords[0])
         end = Point(self.line.coords[-1])
         return point.intersects(self.line) \
             or point.equals(start) \
             or point.equals(end)
 
-    def point_sort_key(self, point):
-        if point in self.sort_cache:
-            return self.sort_cache[point]
+    def get_point_sort_key(self, point: Point) -> float:
+        if point in self._sort_cache:
+            return self._sort_cache[point]
 
         if point in self.cumulative_distances:
             distance = self.cumulative_distances[point]
         else:
-            s_idxes = list(self.seg_idx.intersection(point.bounds))
+            s_idxes = list(self._seg_idx.intersection(point.bounds))
             if len(s_idxes) == 0:
                 raise Exception('Point is not in line as expected.')
             if len(s_idxes) > 1:
@@ -84,65 +91,141 @@ class Boundary:
             distance = \
                 self.cumulative_distances[seg_start] + segment.project(point)
 
-        self.sort_cache[point] = distance
+        self._sort_cache[point] = distance
         return distance
 
-    def get_segment_idx_and_reverse(self, start, end, line):
+    def add_ring_intersection(
+        self,
+        other, #: Boundary,
+        ring: LineString,
+    ) -> None:
+        assert ring.is_ring
+        self._ring_intersections[other.idx] = ring
+
+    def get_ring_intersections(self) -> ItemsView[NeighborIdx, LineString]:
+        return self._ring_intersections.items()
+
+    def add_intersection(
+        self,
+        other, #: Boundary,
+        segments: List[LineString],
+    ) -> None:
+        self._intersections[other.idx] = segments
+
+    def get_intersections(self) -> ItemsView[NeighborIdx, List[LineString]]:
+        return self._intersections.items()
+
+    def add_cutpoint(self, cutpoint: Point) -> None:
+        key = self.get_point_sort_key(cutpoint)
+        self._cutpoints[key] = cutpoint
+
+    def get_cutpoints(self) -> List[Point]:
+        return list(self._cutpoints.values())
+
+    def set_segments(self, segments: List[Segment]) -> None:
+        assert len(self._cutpoints) == len(segments), \
+            "Expect number of segments " \
+            "to equal number of cutpoints."
+        self.segments = segments
+        self._segment_map = {
+            (s.start, s.end): i for i, s in enumerate(self.segments)
+        }
+        self._potential_references = [
+            [] for i in range(len(self.segments))
+        ]
+
+    def add_potential_reference(
+        self,
+        reference: Segment,
+    ) -> None:
+        idx, _orientation = self._get_segment_idx_and_orientation(
+            reference.start,
+            reference.end,
+            reference.line
+        )
+        self._potential_references[idx].append(reference)
+
+    def get_segments_with_potential_references(
+        self
+    ) -> List[Tuple[Segment, List[Segment]]]:
+        assert len(self.segments) == len(self._potential_references)
+        return list(zip(self.segments, self._potential_references))
+
+    def get_orientation(self, segment: Segment) -> Orientation:
+        _idx, orientation = self._get_segment_idx_and_orientation(
+            segment.start,
+            segment.end,
+            segment.line
+        )
+        return orientation
+
+    def _get_segment_idx_and_orientation(
+        self,
+        start: int,
+        end: int,
+        line: LineString,
+    ) -> Tuple[int, Orientation]:
+        assert self._segment_map is not None and self.segments is not None
+
         if len(self.segments) == 1:
-            if (start, end) in self.segment_map:
+            if (start, end) in self._segment_map:
                 assert start == end
-                seg_idx = self.segment_map[(start, end)]
-                assert seg_idx == 0
-                reverse = False
+                idx = self._segment_map[(start, end)]
+                assert idx == 0
+                orientation = Orientation.FORWARD
             else:
                 raise Exception(
                     "Could not find segment idx "
                     "for given start and end points."
                 )
         elif len(self.segments) == 2:
-            first_seg_idx = self.segment_map[(start, end)]
-            first_segment = self.segments[first_seg_idx]
-            second_seg_idx = self.segment_map[(end, start)]
-            second_segment = self.segments[second_seg_idx]
+            first_idx = self._segment_map[(start, end)]
+            first_segment = self.segments[first_idx]
+            second_idx = self._segment_map[(end, start)]
+            second_segment = self.segments[second_idx]
             reverse_line = LineString(line.coords[::-1])
 
             if first_segment.line.equals(line):
-                seg_idx = first_seg_idx
-                reverse = False
+                idx = first_idx
+                orientation = Orientation.FORWARD
             elif first_segment.line.equals(reverse_line):
-                seg_idx = first_seg_idx
-                reverse = True
+                idx = first_idx
+                orientation = Orientation.BACKWARD
             elif second_segment.line.equals(line):
-                seg_idx = second_seg_idx
-                reverse = True
+                idx = second_idx
+                orientation = Orientation.BACKWARD
             elif second_segment.line.equals(reverse_line):
-                seg_idx = second_seg_idx
-                reverse = False
+                idx = second_idx
+                orientation = Orientation.FORWARD
             else:
                 raise Exception(
                     "Could not find segment idx for "
                     "given start and end points and line."
                 )
         else:
-            if (start, end) in self.segment_map:
-                seg_idx = self.segment_map[(start, end)]
-                reverse = False
-            elif (end, start) in self.segment_map:
-                seg_idx = self.segment_map[(end, start)]
-                reverse = True
+            if (start, end) in self._segment_map:
+                idx = self._segment_map[(start, end)]
+                orientation = Orientation.FORWARD
+            elif (end, start) in self._segment_map:
+                idx = self._segment_map[(end, start)]
+                orientation = Orientation.BACKWARD
             else:
                 raise Exception(
                     "Could not find segment idx "
                     "for given start and end points."
                 )
 
-        return seg_idx, reverse
+        return idx, orientation
 
-    def get_segment(self, start, end):
-        seg_idx = self.segment_map[(start, end)]
-        return self.segments[seg_idx]
+    def get_segment(self, start: int, end: int) -> Segment:
+        assert self._segment_map is not None and self.segments is not None
 
-    def rebuild(self):
+        idx = self._segment_map[(start, end)]
+        return self.segments[idx]
+
+    def rebuild(self) -> None:
+        assert self.segments is not None
+
         segments = []
         for segment in self.segments:
             segment.rebuild()

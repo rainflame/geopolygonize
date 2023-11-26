@@ -1,149 +1,87 @@
+from typing import List
+
 from shapely.geometry import LineString, Point
 
+from .boundary_cutter import BoundaryCutter
+from .boundary import Boundary
 from .segment import Segment
 
 
-def get_positions(sort_key, length, points):
-    positions = []
-    for i, p in enumerate(points):
-        position = sort_key(p)
-        if i > 0 and position <= positions[i-1]:
-            position += length
-            assert position > positions[i-1], \
-                "Expect current position to be " \
-                "greater than previous position."
-        positions.append(position)
-    return positions
+"""
+Identifies boundaries that share a common segment and determines
+the reference segment object from which duplicates of the segment
+in the boundaries should copy from.
+"""
 
 
-def get_iterations(line, sort_key, length):
-    line_points = [Point(c) for c in line.coords]
-    if line.is_ring:
-        line_points = line_points[:-1]
-    first_boundary = [(p, sort_key(p)) for p in line_points]
-    second_boundary = [(p, pos + length) for (p, pos) in first_boundary]
-    if line.is_ring:
-        second_boundary.append((line_points[0], 2*length))
-    return first_boundary + second_boundary
+class ReferencesComputer:
+    def __init__(
+        self,
+        boundaries: List[LineString],
+    ) -> None:
+        self.boundaries = boundaries
 
+    def _consider_boundary_for_segments(
+        self,
+        curr_boundary: Boundary,
+    ) -> None:
+        curr_boundary = self.boundaries[curr_boundary.idx]
+        for i, segment in enumerate(curr_boundary.segments):
+            curr_boundary.add_potential_reference(segment)
 
-def get_segments_helper(line, sort_key, length, cutpoints):
-    positions = get_positions(sort_key, length, cutpoints)
-    assert len(positions) == len(cutpoints), \
-        "Expect the number of positions to be " \
-        "the same as the number of cutpoints."
-    iterations = get_iterations(line, sort_key, length)
-
-    segments = []
-    segment_coords = None
-    cutpoint_idx = 0
-    for (p, pos) in iterations:
-        if cutpoint_idx == len(cutpoints):
-            break
-
-        if pos < positions[cutpoint_idx]:
-            if segment_coords is None:
+    def _consider_neighbor_for_ring_segments(
+        self,
+        curr_boundary: Boundary,
+    ) -> None:
+        for o, _ring in curr_boundary.get_ring_intersections():
+            if o <= curr_boundary.idx:
                 continue
-            else:
-                segment_coords.append(p)
-        else:
-            if segment_coords is None:
-                segment_coords = []
-            while cutpoint_idx < len(cutpoints) \
-                    and pos >= positions[cutpoint_idx]:
-                segment_coords.append(cutpoints[cutpoint_idx])
-                if cutpoint_idx > 0:
-                    segments.append(LineString(segment_coords))
-                    segment_coords = [cutpoints[cutpoint_idx]]
-                    if pos > positions[cutpoint_idx] \
-                            and pos < positions[cutpoint_idx+1]:
-                        segment_coords.append(p)
-                cutpoint_idx += 1
+            other_boundary = self.boundaries[o]
 
-    return segments
+            cutpoints = curr_boundary.get_cutpoints()
+            cutpoints_with_end = cutpoints + [cutpoints[0]]
 
-
-def get_segments(boundary, cutpoints):
-    segments = get_segments_helper(
-        boundary.line,
-        boundary.point_sort_key,
-        boundary.line.length, cutpoints,
-    )
-    assert len(segments) == len(cutpoints) - 1, \
-        "Expect number of segments to be one " \
-        "less than number of inputted cutpoints."
-    return segments
-
-
-def compute_segments_per_boundary(all_boundaries):
-    for b in range(len(all_boundaries)):
-        boundary = all_boundaries[b]
-
-        cutpoints_with_end = boundary.cutpoints + [boundary.cutpoints[0]]
-        segment_lines = get_segments(boundary, cutpoints_with_end)
-        boundary.segments = [Segment(boundary, sl) for sl in segment_lines]
-        assert len(boundary.cutpoints) == len(boundary.segments), \
-            "Expect number of segments " \
-            "to equal number of cutpoints."
-        boundary.segment_map = {
-            (s.start, s.end): i for i, s in enumerate(boundary.segments)
-        }
-
-
-# Get cutpoints to split intersection by.
-def get_relevant_cutpoints(boundary, intersection):
-    start = Point(intersection.coords[0])
-    end = Point(intersection.coords[-1])
-
-    super_line = LineString(boundary.cutpoints)
-    super_segments = get_segments_helper(
-        super_line,
-        boundary.point_sort_key,
-        boundary.line.length,
-        [start, end],
-    )
-    super_segment = super_segments[0]
-
-    relevant_cutpoints = [Point(c) for c in super_segment.coords]
-    return relevant_cutpoints
-
-
-def compute_boundaries_per_segment(all_boundaries):
-    for b in range(len(all_boundaries)):
-        curr_boundary = all_boundaries[b]
-        curr_boundary.segment_idx_to_neighbors = [
-            [(b, curr_boundary.segments[i], False)]
-            for i in range(len(curr_boundary.segments))
-        ]
-
-    for b in range(len(all_boundaries)):
-        curr_boundary = all_boundaries[b]
-
-        for n in curr_boundary.ring_intersections:
-            if n <= b:
-                continue
-            other_boundary = all_boundaries[n]
-            cutpoints_with_end =\
-                curr_boundary.cutpoints + [curr_boundary.cutpoints[0]]
             for i in range(len(cutpoints_with_end)-1):
                 start = cutpoints_with_end[i]
                 end = cutpoints_with_end[i+1]
                 segment = curr_boundary.get_segment(start, end)
+                other_boundary.add_potential_reference(segment)
 
-                other_seg_idx, reverse = \
-                    other_boundary.get_segment_idx_and_reverse(
-                        start, end, segment.line
-                    )
-                other_boundary.segment_idx_to_neighbors[other_seg_idx] \
-                    .append((b, segment, reverse))
+    # Get cutpoints to split intersection by.
+    def _get_relevant_cutpoints(
+        self,
+        boundary: Boundary,
+        intersection: LineString,
+    ) -> List[Point]:
+        start = Point(intersection.coords[0])
+        end = Point(intersection.coords[-1])
 
-        for n, intersection_segments in curr_boundary.intersections.items():
-            if n <= b:
+        cutpoints = boundary.get_cutpoints()
+        cutpoints_with_end = cutpoints + [cutpoints[0]]
+        boundary_with_just_cutpoints = \
+            Boundary(-1, LineString(cutpoints_with_end))
+        boundary_cutter = BoundaryCutter(
+            boundary_with_just_cutpoints,
+            [start, end],
+        )
+        super_segments = boundary_cutter.cut_boundary()
+        super_segment = super_segments[0]
+
+        relevant_cutpoints = [Point(c) for c in super_segment.coords]
+        return relevant_cutpoints
+
+    def _consider_neighbor_for_line_segments(
+        self,
+        curr_boundary: Boundary,
+    ) -> None:
+        for o, intersection_segments \
+                in curr_boundary.get_intersections():
+            if o <= curr_boundary.idx:
                 continue  # handled already
-            other_boundary = all_boundaries[n]
+            other_boundary = self.boundaries[o]
 
             for intersection_segment in intersection_segments:
-                rel_cutpoints = get_relevant_cutpoints(
+                rel_cutpoints = self._get_relevant_cutpoints(
                     curr_boundary,
                     intersection_segment,
                 )
@@ -152,26 +90,40 @@ def compute_boundaries_per_segment(all_boundaries):
                     start = rel_cutpoints[i]
                     end = rel_cutpoints[i+1]
                     segment = curr_boundary.get_segment(start, end)
+                    other_boundary.add_potential_reference(segment)
 
-                    other_seg_idx, reverse = \
-                        other_boundary.get_segment_idx_and_reverse(
-                            start, end, segment.line
-                        )
-                    other_boundary.segment_idx_to_neighbors[other_seg_idx] \
-                        .append((b, segment, reverse))
+    def _compute_reference_options_per_segment(self) -> None:
+        for b in range(len(self.boundaries)):
+            curr_boundary = self.boundaries[b]
+            self._consider_boundary_for_segments(curr_boundary)
 
+        for b in range(len(self.boundaries)):
+            curr_boundary = self.boundaries[b]
+            self._consider_neighbor_for_ring_segments(curr_boundary)
 
-def compute_reference_per_segment(all_boundaries):
-    for b in range(len(all_boundaries)):
-        boundary = all_boundaries[b]
+        for b in range(len(self.boundaries)):
+            curr_boundary = self.boundaries[b]
+            self._consider_neighbor_for_line_segments(curr_boundary)
 
-        for i, nps in enumerate(boundary.segment_idx_to_neighbors):
-            _reference_idx, reference_segment, reverse = \
-                min(nps, key=lambda x: x[0])
-            boundary.segments[i].set_reference(reference_segment, reverse)
+    def _choose_references(self) -> List[Segment]:
+        references = []
+        for b in range(len(self.boundaries)):
+            boundary = self.boundaries[b]
 
+            for segment, potential_references in \
+                    boundary.get_segments_with_potential_references():
+                reference = min(
+                    potential_references,
+                    key=lambda r: r.boundary.idx
+                )
+                segment.set_reference(reference)
 
-def compute_references(all_boundaries):
-    compute_segments_per_boundary(all_boundaries)
-    compute_boundaries_per_segment(all_boundaries)
-    compute_reference_per_segment(all_boundaries)
+                if segment.is_reference():
+                    references.append(reference)
+
+        return references
+
+    def compute_references(self) -> List[Segment]:
+        self._compute_reference_options_per_segment()
+        references = self._choose_references()
+        return references
