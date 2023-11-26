@@ -12,10 +12,10 @@ class CutpointsComputer:
     def __init__(
         self,
         boundaries: List[LineString],
-    ):
+    ) -> None:
         self.boundaries = boundaries
 
-    def _use_cutpoints_from_neighbor_start_points(self):
+    def _use_cutpoints_from_neighbor_start_points(self) -> None:
         for b in range(len(self.boundaries)):
             curr_boundary = self.boundaries[b]
             for n, _segments in curr_boundary.get_intersections():
@@ -31,7 +31,7 @@ class CutpointsComputer:
                 if on_other_boundary:
                     other_boundary.add_cutpoint(curr_start)
 
-    def _use_cutpoints_from_intersection_endpoints(self):
+    def _use_cutpoints_from_intersection_endpoints(self) -> None:
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
             boundary_start_end = Point(boundary.line.coords[0])
@@ -48,6 +48,6 @@ class CutpointsComputer:
             for cutpoint in cutpoints:
                 boundary.add_cutpoint(cutpoint)
 
-    def compute_cutpoints(self):
+    def compute_cutpoints(self) -> None:
         self._use_cutpoints_from_neighbor_start_points()
         self._use_cutpoints_from_intersection_endpoints()

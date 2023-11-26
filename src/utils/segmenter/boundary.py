@@ -14,19 +14,23 @@ class Boundary(object):
     def __enter__(self) -> 'Boundary':
         return self
 
-    def __init__(self, idx, boundary):
+    def __init__(
+        self,
+        idx: int,
+        boundary: LineString,
+    ) -> None:
         self.idx = idx
         self.line = LineString(boundary.coords)
         self.setup_sort_cache()
         self.setup_temporary_variables()
 
-        self.segment_map = None
-        self.segments = None
+        self.segment_map: Dict[Tuple[int, int], int] | None = None
+        self.segments: List[Segment] = []
 
-        self.modified_line = None
+        self.modified_line: LineString | None = None
 
-    def setup_sort_cache(self):
-        self.sort_cache = {}
+    def setup_sort_cache(self) -> None:
+        self.sort_cache: Dict[Point, float] = {}
 
         start = Point(self.line.coords[0])
         self.cumulative_distances = {start: 0}
@@ -46,7 +50,7 @@ class Boundary(object):
             bbox = segment.bounds
             self.seg_idx.insert(i, bbox)
 
-    def setup_temporary_variables(self):
+    def setup_temporary_variables(self) -> None:
         self.ring_intersections: Dict[NeighborIdx, LineString] = {}
         self.intersections: Dict[NeighborIdx, List[LineString]] = {}
 
@@ -58,14 +62,14 @@ class Boundary(object):
         # Index i is potential references for self.segments[i].
         self.potential_references: List[List[Segment]] = []
 
-    def on_boundary(self, point):
+    def on_boundary(self, point: Point) -> bool:
         start = Point(self.line.coords[0])
         end = Point(self.line.coords[-1])
         return point.intersects(self.line) \
             or point.equals(start) \
             or point.equals(end)
 
-    def get_point_sort_key(self, point):
+    def get_point_sort_key(self, point: Point) -> float:
         if point in self.sort_cache:
             return self.sort_cache[point]
 
@@ -94,7 +98,7 @@ class Boundary(object):
         self,
         other, #: Boundary,
         ring: LineString,
-    ):
+    ) -> None:
         assert ring.is_ring
         self.ring_intersections[other.idx] = ring
 
@@ -105,20 +109,20 @@ class Boundary(object):
         self,
         other, #: Boundary,
         segments: List[LineString],
-    ):
+    ) -> None:
         self.intersections[other.idx] = segments
 
     def get_intersections(self) -> ItemsView[NeighborIdx, List[LineString]]:
         return self.intersections.items()
 
-    def add_cutpoint(self, cutpoint: Point):
+    def add_cutpoint(self, cutpoint: Point) -> None:
         key = self.get_point_sort_key(cutpoint)
         self.cutpoints[key] = cutpoint
 
     def get_cutpoints(self) -> List[Point]:
         return list(self.cutpoints.values())
 
-    def set_segments(self, segments: List[Segment]):
+    def set_segments(self, segments: List[Segment]) -> None:
         assert len(self.cutpoints) == len(segments), \
             "Expect number of segments " \
             "to equal number of cutpoints."
@@ -133,7 +137,7 @@ class Boundary(object):
     def add_potential_reference(
         self,
         reference: Segment,
-    ):
+    ) -> None:
         idx, _orientation = self.get_segment_idx_and_orientation(
             reference.start,
             reference.end,
@@ -219,7 +223,7 @@ class Boundary(object):
         seg_idx = self.segment_map[(start, end)]
         return self.segments[seg_idx]
 
-    def rebuild(self):
+    def rebuild(self) -> None:
         assert self.segments is not None
 
         segments = []

@@ -4,6 +4,7 @@ from shapely.geometry import LineString, Point
 
 from .boundary_cutter import BoundaryCutter
 from .boundary import Boundary
+from .segment import Segment
 
 
 """
@@ -17,15 +18,21 @@ class ReferencesComputer:
     def __init__(
         self,
         boundaries: List[LineString],
-    ):
+    ) -> None:
         self.boundaries = boundaries
 
-    def _consider_boundary_for_segments(self, curr_boundary):
+    def _consider_boundary_for_segments(
+        self,
+        curr_boundary: Boundary,
+    ) -> None:
         curr_boundary = self.boundaries[curr_boundary.idx]
         for i, segment in enumerate(curr_boundary.segments):
             curr_boundary.add_potential_reference(segment)
 
-    def _consider_neighbor_for_ring_segments(self, curr_boundary):
+    def _consider_neighbor_for_ring_segments(
+        self,
+        curr_boundary: Boundary,
+    ) -> None:
         for o, _ring in curr_boundary.get_ring_intersections():
             if o <= curr_boundary.idx:
                 continue
@@ -44,7 +51,7 @@ class ReferencesComputer:
     def _get_relevant_cutpoints(
         self,
         boundary: Boundary,
-        intersection: LineString
+        intersection: LineString,
     ) -> List[Point]:
         start = Point(intersection.coords[0])
         end = Point(intersection.coords[-1])
@@ -63,7 +70,10 @@ class ReferencesComputer:
         relevant_cutpoints = [Point(c) for c in super_segment.coords]
         return relevant_cutpoints
 
-    def _consider_neighbor_for_line_segments(self, curr_boundary):
+    def _consider_neighbor_for_line_segments(
+        self,
+        curr_boundary: Boundary,
+    ) -> None:
         for o, intersection_segments \
                 in curr_boundary.get_intersections():
             if o <= curr_boundary.idx:
@@ -82,7 +92,7 @@ class ReferencesComputer:
                     segment = curr_boundary.get_segment(start, end)
                     other_boundary.add_potential_reference(segment)
 
-    def _compute_reference_options_per_segment(self):
+    def _compute_reference_options_per_segment(self) -> None:
         for b in range(len(self.boundaries)):
             curr_boundary = self.boundaries[b]
             self._consider_boundary_for_segments(curr_boundary)
@@ -95,7 +105,7 @@ class ReferencesComputer:
             curr_boundary = self.boundaries[b]
             self._consider_neighbor_for_line_segments(curr_boundary)
 
-    def _choose_references(self):
+    def _choose_references(self) -> List[Segment]:
         references = []
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
@@ -113,7 +123,7 @@ class ReferencesComputer:
 
         return references
 
-    def compute_references(self):
+    def compute_references(self) -> List[Segment]:
         self._compute_reference_options_per_segment()
         references = self._choose_references()
         return references

@@ -2,7 +2,7 @@ from shapely.geometry import LineString, Point
 
 
 class Piece:
-    def __init__(self, ls: LineString):
+    def __init__(self, ls: LineString) -> None:
         assert len(ls.coords) == 2, \
             "Expect LineString to make Piece from to have only two points."
         self.ls = ls

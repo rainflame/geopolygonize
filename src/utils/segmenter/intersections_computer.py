@@ -8,6 +8,7 @@ from shapely.geometry import \
     Point
 from rtree import index
 
+from .boundary import Boundary
 from .piece import Piece
 
 
@@ -21,7 +22,7 @@ class IntersectionsComputer:
     def __init__(
         self,
         boundaries: List[LineString],
-    ):
+    ) -> None:
         self.boundaries = boundaries
 
     def _make_index(self) -> index.Index:
@@ -123,7 +124,7 @@ class IntersectionsComputer:
 
         return segments
 
-    def _compute_intersection(self, curr, other):
+    def _compute_intersection(self, curr: Boundary, other: Boundary) -> None:
         intersection = curr.line.intersection(other.line)
         intersection_pieces = self._handle(intersection)
 
@@ -148,7 +149,7 @@ class IntersectionsComputer:
             curr.add_intersection(other, intersection_segments)
             other.add_intersection(curr, intersection_segments)
 
-    def compute_intersections(self):
+    def compute_intersections(self) -> None:
         boundary_idx = self._make_index()
 
         for b in range(len(self.boundaries)):

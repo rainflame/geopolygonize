@@ -10,10 +10,10 @@ class MappingComputer:
     def __init__(
         self,
         boundaries: List[LineString],
-    ):
+    ) -> None:
         self.boundaries = boundaries
 
-    def _compute_segments_per_boundary(self):
+    def _compute_segments_per_boundary(self) -> None:
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
 
@@ -25,5 +25,5 @@ class MappingComputer:
             ]
             boundary.set_segments(segments)
 
-    def compute_mapping(self):
+    def compute_mapping(self) -> None:
         self._compute_segments_per_boundary()

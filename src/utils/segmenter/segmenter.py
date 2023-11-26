@@ -13,7 +13,7 @@ class Segmenter:
     def __init__(
         self,
         polygons: List[Polygon]
-    ):
+    ) -> None:
         self.polygons = polygons
 
         self._build()
@@ -21,7 +21,7 @@ class Segmenter:
     def run_per_segment(
         self,
         per_segment_function: Callable[[LineString], LineString]
-    ):
+    ) -> None:
         for reference in self.references:
             modified_line = per_segment_function(
                 reference.modified_line
@@ -34,25 +34,25 @@ class Segmenter:
         modified_polygons = [a.modified_polygon for a in self.areas]
         return modified_polygons
 
-    def _build(self):
+    def _build(self) -> None:
         self._area_build()
         self._boundary_build()
         self._reference_build()
 
-    def _rebuild(self):
+    def _rebuild(self) -> None:
         self._boundary_rebuild()
         self._area_rebuild()
 
-    def _area_build(self):
+    def _area_build(self) -> None:
         areas = [Area(p) for p in self.polygons]
         self.areas = areas
 
-    def _area_rebuild(self):
+    def _area_rebuild(self) -> None:
         for i in range(len(self.areas)):
             area = self.areas[i]
             area.rebuild()
 
-    def _boundary_build(self):
+    def _boundary_build(self) -> None:
         boundaries = []
         boundary_count = 0
 
@@ -75,12 +75,12 @@ class Segmenter:
 
         self.boundaries = boundaries
 
-    def _boundary_rebuild(self):
+    def _boundary_rebuild(self) -> None:
         for b in range(len(self.boundaries)):
             boundary = self.boundaries[b]
             boundary.rebuild()
 
-    def _reference_build(self):
+    def _reference_build(self) -> None:
         IntersectionsComputer(self.boundaries).compute_intersections()
         CutpointsComputer(self.boundaries).compute_cutpoints()
         MappingComputer(self.boundaries).compute_mapping()
