@@ -4,6 +4,7 @@ from typing import Callable, List
 
 from .area import Area
 from .boundary import Boundary
+from .clean_polygon import clean_polygon
 from .intersections_computer import IntersectionsComputer
 from .cutpoints_computer import CutpointsComputer
 from .mapping_computer import MappingComputer
@@ -35,6 +36,12 @@ class Segmenter:
         self._rebuild()
 
         modified_polygons = [a.modified_polygon for a in self._areas]
+
+        if self.pin_border:
+            union = unary_union(modified_polygons)
+            modified_border = clean_polygon(union).exterior
+            assert modified_border.equals(self.border)
+
         return modified_polygons
 
     def _build(self) -> None:
@@ -51,7 +58,7 @@ class Segmenter:
 
     def _border_build(self) -> None:
         union = unary_union(self.polygons)
-        self.border: LineString = union.exterior
+        self.border: LineString = clean_polygon(union).exterior
 
     def _area_build(self) -> None:
         areas = [Area(p) for p in self.polygons]
