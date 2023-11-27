@@ -160,3 +160,14 @@ class IntersectionsComputer:
                 other_boundary = self.boundaries[o]
 
                 self._compute_intersection(curr_boundary, other_boundary)
+
+    def compute_border_intersections(self, border: LineString) -> None:
+        for b in range(len(self.boundaries)):
+            curr_boundary = self.boundaries[b]
+
+            intersection = curr_boundary.line.intersection(border)
+            intersection_pieces = self._handle(intersection)
+
+            intersection_segments =\
+                self._get_connected_segments(intersection_pieces)
+            curr_boundary.set_border_intersections(intersection_segments)

@@ -1,4 +1,5 @@
 from shapely import LineString, Polygon
+from shapely.ops import unary_union
 from typing import Callable, List
 
 from .area import Area
@@ -12,9 +13,11 @@ from .references_computer import ReferencesComputer
 class Segmenter:
     def __init__(
         self,
-        polygons: List[Polygon]
+        polygons: List[Polygon],
+        pin_border: bool,
     ) -> None:
         self.polygons = polygons
+        self.pin_border = pin_border
 
         self._build()
 
@@ -35,6 +38,9 @@ class Segmenter:
         return modified_polygons
 
     def _build(self) -> None:
+        if self.pin_border:
+            self._border_build()
+
         self._area_build()
         self._boundary_build()
         self._reference_build()
@@ -42,6 +48,10 @@ class Segmenter:
     def _rebuild(self) -> None:
         self._boundary_rebuild()
         self._area_rebuild()
+
+    def _border_build(self) -> None:
+        union = unary_union(self.polygons)
+        self.border: LineString = union.exterior
 
     def _area_build(self) -> None:
         areas = [Area(p) for p in self.polygons]
@@ -81,8 +91,17 @@ class Segmenter:
             boundary.rebuild()
 
     def _reference_build(self) -> None:
-        IntersectionsComputer(self._boundaries).compute_intersections()
-        CutpointsComputer(self._boundaries).compute_cutpoints()
+        intersections_computer = IntersectionsComputer(self._boundaries)
+        intersections_computer.compute_intersections()
+        if self.pin_border:
+            intersections_computer.compute_border_intersections(self.border)
+
+        cutpoints_computer = CutpointsComputer(self._boundaries)
+        cutpoints_computer.compute_cutpoints()
+        if self.pin_border:
+            cutpoints_computer.compute_border_cutpoints(self.border)
+
         MappingComputer(self._boundaries).compute_mapping()
+
         references = ReferencesComputer(self._boundaries).compute_references()
         self._references = references

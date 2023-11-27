@@ -79,8 +79,10 @@ class GeoPolygonizer:
         polygons: List[Polygon] = [shape(s) for s in polygons_and_labels[0]]
         labels: List[Any] = [v for v in polygons_and_labels[1]]
 
-        segmenter = Segmenter(polygons)
-
+        segmenter = Segmenter(
+            polygons=polygons,
+            pin_border=True,
+        )
         segmenter.run_per_segment(self._generate_simplify_func())
         segmenter.run_per_segment(self._generate_smoothing_func())
         modified_polygons = segmenter.get_result()
