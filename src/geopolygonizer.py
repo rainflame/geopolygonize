@@ -113,8 +113,8 @@ class GeoPolygonizer:
 
         rel_start_x = tile_parameters.start_x - bx0
         rel_start_y = tile_parameters.start_y - by0
-        rel_end_x = bx1 - tile_parameters.start_x
-        rel_end_y = by1 - tile_parameters.start_y
+        rel_end_x = min(rel_start_x + tile_parameters.width, bx1)
+        rel_end_y = min(rel_start_y + tile_parameters.height, by1)
 
         unbuffered = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
         gdf = self._vectorize(unbuffered)
