@@ -2,6 +2,7 @@ from typing import List
 
 from shapely.geometry import LineString, Point
 
+from .boundary_cutter import BoundaryCutter
 
 """
 Computes cutpoints of boundaries by which to then split them into segments.
@@ -51,3 +52,28 @@ class CutpointsComputer:
     def compute_cutpoints(self) -> None:
         self._use_cutpoints_from_neighbor_start_points()
         self._use_cutpoints_from_intersection_endpoints()
+
+    def compute_border_cutpoints(self, border: LineString) -> None:
+        for b in range(len(self.boundaries)):
+            curr_boundary = self.boundaries[b]
+
+            intersections = curr_boundary.get_border_intersections()
+
+            keep_all = len(intersections) == 1 and intersections[0].is_ring
+            if keep_all:
+                for coord in list(curr_boundary.line.coords):
+                    cutpoint = Point(coord)
+                    curr_boundary.add_cutpoint(cutpoint)
+            else:
+                for intersection in intersections:
+                    start = Point(intersection.coords[0])
+                    end = Point(intersection.coords[-1])
+                    boundary_cutter = BoundaryCutter(
+                        curr_boundary,
+                        [start, end]
+                    )
+                    segments = boundary_cutter.cut_boundary()
+                    segment = segments[0]
+                    for coord in list(segment.coords):
+                        cutpoint = Point(coord)
+                        curr_boundary.add_cutpoint(cutpoint)

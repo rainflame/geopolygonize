@@ -74,6 +74,15 @@ class Boundary(object):
             or point.equals(start) \
             or point.equals(end)
 
+    def set_border_intersections(
+        self,
+        intersections: List[LineString],
+    ) -> None:
+        self._border_intersections = intersections
+
+    def get_border_intersections(self) -> List[LineString]:
+        return self._border_intersections
+
     def get_point_sort_key(self, point: Point) -> float:
         if point in self._sort_cache:
             return self._sort_cache[point]
