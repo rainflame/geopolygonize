@@ -19,6 +19,11 @@ class Boundary(object):
         idx: int,
         boundary: LineString,
     ) -> None:
+        # A boundary of a polygon is also a ring (closed and simple).
+        # We use Boundary on the cutpoints of a polygon, which may
+        # not result in a simple line, but should result in a closed one.
+        assert boundary.is_closed
+
         self.idx = idx
         self.line = LineString(boundary.coords)
         self._setup_sort_cache()

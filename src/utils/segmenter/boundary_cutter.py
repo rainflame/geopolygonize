@@ -36,7 +36,7 @@ class BoundaryCutter:
 
     def _get_positioned_coords(self) -> List[Point]:
         coords = [Point(c) for c in self.boundary.line.coords]
-        if self.boundary.line.is_ring:
+        if self.boundary.line.is_closed:
             coords = coords[:-1]
 
         first_boundary = [
@@ -50,7 +50,7 @@ class BoundaryCutter:
             ) for positioned_point in first_boundary
         ]
 
-        if self.boundary.line.is_ring:
+        if self.boundary.line.is_closed:
             positioned_point = \
                 PositionedPoint(coords[0], 2*self.boundary.line.length)
             second_boundary.append(positioned_point)
