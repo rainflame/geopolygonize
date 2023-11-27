@@ -91,6 +91,7 @@ class GeoPolygonizer:
 
     def process_tile(self, tile_parameters, tiler_parameters):
         buffer = self.min_blob_size - 1
+
         bx0 = max(tile_parameters.start_x-buffer, 0)
         by0 = max(tile_parameters.start_y-buffer, 0)
         bx1 = min(
@@ -109,12 +110,18 @@ class GeoPolygonizer:
 
         tile_raster = self.data[bx0:bx1, by0:by1]
         cleaned = self._clean(tile_raster)
-        unbuffered = cleaned[buffer:-buffer, buffer:-buffer]
+
+        rel_start_x = tile_parameters.start_x - bx0
+        rel_start_y = tile_parameters.start_y - by0
+        rel_end_x = bx1 - tile_parameters.start_x
+        rel_end_y = by1 - tile_parameters.start_y
+
+        unbuffered = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
         gdf = self._vectorize(unbuffered)
 
         # in physical space, x and y are reversed
-        shift_x = (by0 + buffer) * self.pixel_size
-        shift_y = -((bx0 + buffer) * self.pixel_size)
+        shift_x = tile_parameters.start_y * self.pixel_size
+        shift_y = -(tile_parameters.start_x * self.pixel_size)
         gdf['geometry'] = gdf['geometry'].apply(
             lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
         )
