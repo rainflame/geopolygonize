@@ -107,7 +107,7 @@ class GeoPolygonizer:
 
         if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
             empty = gpd.GeoDataFrame({"geometry": []})
-            empty.set_geometry("geometry")
+            empty = empty.set_geometry("geometry")
             return empty
 
         tile_raster = self.data[bx0:bx1, by0:by1]

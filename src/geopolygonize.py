@@ -9,6 +9,7 @@ import shutil
 import rasterio
 
 from .geopolygonizer import GeoPolygonizer
+from .utils.unifier import unify_by_label
 from .utils.tiler import Tiler, TilerParameters
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -142,7 +143,8 @@ def cli(
             process_tile=geopolygonizer.process_tile,
         )
         gdf = rz.process()
-        gdf.to_file(output_file)
+        union_gdf = unify_by_label(gdf, label_name)
+        union_gdf.to_file(output_file)
 
     except Exception as e:
         raise e
