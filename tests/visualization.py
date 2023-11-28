@@ -1,6 +1,8 @@
 import random
 import numpy as np
 
+from matplotlib.collections import PatchCollection
+from matplotlib.patches import Polygon as PolygonPatch
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
@@ -54,12 +56,23 @@ def show_polygons(polygons, labels=None, color_map=None):
     if color_map is None:
         color_map = generate_color_map(labels)
 
-    for i, p in enumerate(polygons):
-        x, y = p.exterior.xy
-        ax.fill(x, y, color=color_map[labels[i]], alpha=0.3)
-        for interior in p.interiors:
-            x, y = interior.xy
-            ax.plot(x, y, color=color_map[labels[i]])
+    for i, polygon in enumerate(polygons):
+        color = color_map[labels[i]]
+        ps = []
+        if polygon.geom_type == "Polygon":
+            ps.append(polygon)
+        elif polygon.geom_type == "MultiPolygon":
+            for p in polygon:
+                ps.append(p)
+
+        patches = []
+        for p in ps:
+            x, y = p.exterior.xy
+            patch = PolygonPatch(list(zip(x, y)), closed=True)
+            patches.append(patch)
+        collection = PatchCollection(patches, alpha=0.3)
+        collection.set_array(color)
+        ax.add_collection(collection)
 
     plt.axis('equal')
 
