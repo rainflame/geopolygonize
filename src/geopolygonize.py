@@ -1,6 +1,6 @@
 import click
 
-from .geopolygonizer import GeoPolygonizer
+from .geopolygonizer import GeoPolygonizer, GeoPolygonizerParams
 
 
 @click.command(
@@ -77,18 +77,18 @@ def cli(
     workers,
     tile_size,
 ):
-    geopolygonizer = GeoPolygonizer(
+    params = GeoPolygonizerParams(
         input_file=input_file,
         output_file=output_file,
+        label_name=label_name,
         min_blob_size=min_blob_size,
         pixel_size=pixel_size,
         simplification_pixel_window=simplification_pixel_window,
         smoothing_iterations=smoothing_iterations,
-        label_name=label_name,
         workers=workers,
         tile_size=tile_size,
     )
-    geopolygonizer.geopolygonize()
+    GeoPolygonizer(params).geopolygonize()
 
 
 if __name__ == '__main__':
