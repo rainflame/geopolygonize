@@ -1,0 +1,95 @@
+import click
+
+from .geopolygonizer import GeoPolygonizer
+
+
+@click.command(
+    name="Geopolygonize",
+    help="Convert a geographic raster input "
+         "into an attractive shapefile output."
+)
+@click.option(
+    '--input-file',
+    type=click.Path(file_okay=True, dir_okay=False),
+    help="Input TIF file path",
+    required=True,
+)
+@click.option(
+    '--output-file',
+    type=click.Path(file_okay=True, dir_okay=False),
+    help="Output shapefile path",
+    required=True,
+)
+@click.option(
+    '--label-name',
+    default='label',
+    type=str,
+    help="The name of the attribute each pixel value represents.",
+)
+@click.option(
+    '--min-blob-size',
+    default=30,
+    type=int,
+    help="The mininum number of pixels a blob can have and not be "
+         "filtered out.",
+)
+@click.option(
+    '--pixel-size',
+    default=0.0,
+    type=float,
+    help="Override on the size of each pixel in units of the "
+         "input file's coordinate reference system.",
+)
+@click.option(
+    "--simplification-pixel-window",
+    default=1,
+    type=float,
+    help="The amount of simplification applied relative to the pixel size."
+)
+@click.option(
+    "--smoothing-iterations",
+    default=0,
+    type=int,
+    help="The number of iterations of smoothing to run on the "
+         "output polygons.",
+)
+@click.option(
+    '--tile-size',
+    default=200,
+    type=int,
+    help="Tile size in pixels",
+)
+@click.option(
+    '--workers',
+    default=0,  # standard for use all cpus
+    type=int,
+    help="Number of processes to spawn to process tiles in parallel. "
+         "Input 0 to use all available CPUs."
+)
+def cli(
+    input_file,
+    output_file,
+    min_blob_size,
+    pixel_size,
+    simplification_pixel_window,
+    smoothing_iterations,
+    label_name,
+    workers,
+    tile_size,
+):
+    geopolygonizer = GeoPolygonizer(
+        input_file=input_file,
+        output_file=output_file,
+        min_blob_size=min_blob_size,
+        pixel_size=pixel_size,
+        simplification_pixel_window=simplification_pixel_window,
+        smoothing_iterations=smoothing_iterations,
+        label_name=label_name,
+        workers=workers,
+        tile_size=tile_size,
+    )
+    geopolygonizer.geopolygonize()
+
+
+if __name__ == '__main__':
+    cli()
