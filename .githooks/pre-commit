@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+if [[ $(git diff --cached --name-only src/) ]]; then
+    echo "Updating docs..."
+    source .venv/bin/activate
+    pdoc src/geopolygonizer.py -o docs
+    git add docs
+    deactivate
+fi
