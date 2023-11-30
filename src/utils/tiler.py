@@ -33,7 +33,7 @@ class Tiler:
             Any
         ],
         stitch_tiles: Callable[[], Any],
-    ):
+    ) -> None:
         self.tiler_parameters = tiler_parameters
         self.process_tile = process_tile
         self.stitch_tiles = stitch_tiles
@@ -55,14 +55,17 @@ class Tiler:
             gpd.GeoDataFrame
         ],
         TilerParameters,
-    ]):
+    ]) -> None:
         tile_parameters, process_tile, tiler_parameters = args
         process_tile(
             tile_parameters,
             tiler_parameters,
         )
 
-    def _process_tiles(self, all_tile_parameters: List[TileParameters]):
+    def _process_tiles(
+        self,
+        all_tile_parameters: List[TileParameters],
+    ) -> None:
         tp = self.tiler_parameters
         all_args = [(
             tile_parameters,

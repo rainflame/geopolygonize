@@ -8,7 +8,7 @@ class Blobifier:
         self,
         data: np.ndarray,
         min_blob_size: int = 5,
-    ):
+    ) -> None:
         self.data = data
         self.min_blob_size = min_blob_size
 
