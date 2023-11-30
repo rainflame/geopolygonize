@@ -1,11 +1,16 @@
+import glob
+import os
+from tqdm import tqdm
+from typing import Any, Callable, Dict, List
+
 from affine import Affine
 import geopandas as gpd
 import numpy as np
+import pandas as pd
 from rasterio.crs import CRS
 from rasterio.features import shapes
 from shapely.affinity import translate
 from shapely.geometry import shape, LineString, Polygon
-from typing import Any, Callable, Dict, List
 
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import Blobifier
@@ -24,6 +29,7 @@ class GeoPolygonizer:
         pixel_size: int = 0,
         simplification_pixel_window: int = 1,
         smoothing_iterations: int = 0,
+        temp_dir: str = os.path.join("data", "temp")
     ):
         self.data = data
         self.meta = meta
@@ -34,6 +40,7 @@ class GeoPolygonizer:
         self.pixel_size = pixel_size
         self.simplification_pixel_window = simplification_pixel_window
         self.smoothing_iterations = smoothing_iterations
+        self.temp_dir = temp_dir
 
     def _clean(self, tile: np.ndarray) -> np.ndarray:
         blobifier = Blobifier(tile, self.min_blob_size)
@@ -128,4 +135,21 @@ class GeoPolygonizer:
             lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
         )
         gdf.crs = self.crs
-        return gdf
+
+        gdf.to_file(os.path.join(
+            self.temp_dir,
+            f"tile-{tile_parameters.start_x}-{tile_parameters.start_y}.shp",
+        ))
+
+    def stitch_tiles(self) -> gpd.GeoDataFrame:
+        all_gdfs = []
+
+        for filepath in tqdm(
+            glob.glob(os.path.join(self.temp_dir, "*.shp")),
+            desc="Stitching tiles",
+        ):
+            gdf = gpd.read_file(filepath)
+            all_gdfs.append(gdf)
+
+        output_gdf = pd.concat(all_gdfs)
+        return output_gdf

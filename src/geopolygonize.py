@@ -159,6 +159,7 @@ def cli(
             )
 
     try:
+        temp_dir = tempfile.mkdtemp()
         geopolygonizer = GeoPolygonizer(
             data=data,
             meta=meta,
@@ -169,19 +170,19 @@ def cli(
             pixel_size=pixel_size,
             simplification_pixel_window=simplification_pixel_window,
             smoothing_iterations=smoothing_iterations,
+            temp_dir=temp_dir,
         )
 
-        temp_dir = tempfile.mkdtemp()
         tiler_parameters = TilerParameters(
             endx=endx,
             endy=endy,
             tile_size=tile_size,
             num_processes=workers,
-            temp_dir=temp_dir,
         )
         rz = Tiler(
             tiler_parameters=tiler_parameters,
             process_tile=geopolygonizer.process_tile,
+            stitch_tiles=geopolygonizer.stitch_tiles,
         )
         gdf = rz.process()
         union_gdf = unify_by_label(gdf, label_name)
