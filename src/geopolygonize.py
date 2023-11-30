@@ -17,6 +17,11 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 EPSILON = 1.0e-10
 
 
+def check_is_positive(field_name, field_value):
+    if field_value <= 0:
+        raise ValueError(f'Value for `{field_name}` must be positive.')
+
+
 def check_non_negative(field_name, field_value):
     if field_value < 0:
         raise ValueError(f'Value for `{field_name}` must be non-negative.')
@@ -124,11 +129,11 @@ def cli(
         "--smoothing-iterations",
         smoothing_iterations
     )
-    check_non_negative(
+    check_is_positive(
         "--workers",
         workers
     )
-    check_non_negative(
+    check_is_positive(
         "--tile-size",
         tile_size
     )
