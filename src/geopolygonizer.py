@@ -1,3 +1,4 @@
+from dataclasses import dataclass
 import glob
 import os
 import multiprocessing
@@ -25,95 +26,123 @@ from .utils.unifier import unify_by_label
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-EPSILON = 1.0e-10
+_EPSILON = 1.0e-10
+
+
+@dataclass
+class GeoPolygonizerParams:
+    """User-inputtable parameters to `GeoPolygonizer`."""
+
+    input_file: str
+    """Input TIF file path"""
+    output_file: str
+    """Output shapefile path"""
+    label_name: str = 'label'
+    """The name of the attribute each pixel value represents."""
+    min_blob_size: int = 5
+    """The mininum number of pixels a blob can have and not be filtered out."""
+    pixel_size: int = 0
+    """
+    Override on the size of each pixel in units of the
+    input file's coordinate reference system.
+    """
+    simplification_pixel_window: int = 1
+    """The amount of simplification applied relative to the pixel size."""
+    smoothing_iterations: int = 0
+    """The number of iterations of smoothing to run on the output polygons."""
+    tile_size: int = 100
+    """Tile size in pixels"""
+    workers: int = 1
+    """
+    Number of processes to spawn to process tiles in parallel.
+    Input 0 to use all available CPUs.
+    """
 
 
 class GeoPolygonizer:
+    """
+    `GeoPolygonizer` will convert a geographic raster input
+    into an attractive shapefile output.
+    """
+
     def __init__(
         self,
-        input_file: str,
-        output_file: str,
-        label_name: str = 'label',
-        min_blob_size: int = 5,
-        pixel_size: int = 0,
-        simplification_pixel_window: int = 1,
-        smoothing_iterations: int = 0,
-        workers: int = 1,
-        tile_size: int = 100,
+        params: GeoPolygonizerParams,
     ) -> None:
-        inputs = glob.glob(input_file)
-        if len(inputs) >= 1:
-            self.input_file = inputs[0]
-        else:
-            raise ValueError(f'Input file does not exist: {input_file}')
+        """
+        Create a `GeoPolygonizer` and validate inputs.
+        """
 
-        output_dir = os.path.dirname(output_file)
+        inputs = glob.glob(params.input_file)
+        if len(inputs) < 1:
+            raise ValueError(f'Input file does not exist: {params.input_file}')
+        self._input_file = inputs[0]
+
+        output_dir = os.path.dirname(params.output_file)
         if not os.path.exists(output_dir):
             raise ValueError(f'Output directory does not exist: {output_dir}')
-        else:
-            self.output_file = output_file
+        self._output_file = params.output_file
 
-        self.label_name = label_name
+        self._label_name = params.label_name
 
-        self._check_non_negative(
+        self._check_is_non_negative(
             "--min-blob-size",
-            min_blob_size
+            params.min_blob_size
         )
-        self.min_blob_size = min_blob_size
+        self._min_blob_size = params.min_blob_size
 
-        self._check_non_negative(
+        self._check_is_non_negative(
             "--pixel-size",
-            pixel_size
+            params.pixel_size
         )
-        self.pixel_size = pixel_size
+        self._pixel_size = params.pixel_size
 
-        self._check_non_negative(
+        self._check_is_non_negative(
             "--simplification-pixel-window",
-            simplification_pixel_window
+            params.simplification_pixel_window
         )
-        self.simplification_pixel_window = simplification_pixel_window
+        self._simplification_pixel_window = params.simplification_pixel_window
 
-        self._check_non_negative(
+        self._check_is_non_negative(
             "--smoothing-iterations",
-            smoothing_iterations
+            params.smoothing_iterations
         )
-        self.smoothing_iterations = smoothing_iterations
-
-        self._check_is_positive(
-            "--workers",
-            workers
-        )
-        if workers == 0:
-            self.workers = multiprocessing.cpu_count()
-        else:
-            self.workers = workers
+        self._smoothing_iterations = params.smoothing_iterations
 
         self._check_is_positive(
             "--tile-size",
-            tile_size
+            params.tile_size
         )
-        self.tile_size = tile_size
+        self._tile_size = params.tile_size
 
-        self.temp_dir = tempfile.mkdtemp()
+        self._check_is_non_negative(
+            "--workers",
+            params.workers
+        )
+        self._workers = multiprocessing.cpu_count() \
+            if params.workers == 0 else params.workers
 
-        with rasterio.open(input_file) as src:
-            self.data: np.ndarray = src.read(1)
-            self.meta: Dict[str, Any] = src.meta
-            self.crs: CRS = self.meta['crs']
-            self.transform: Affine = src.transform
+        self._temp_dir = tempfile.mkdtemp()
 
-            if self.pixel_size == 0:
+        with rasterio.open(params.input_file) as src:
+            self._data: np.ndarray = src.read(1)
+            self._meta: Dict[str, Any] = src.meta
+            self._crs: CRS = self._meta['crs']
+            self._transform: Affine = src.transform
+
+            if params.pixel_size == 0:
                 # assume pixel is square
-                assert abs(src.res[0] - src.res[1]) < EPSILON
-                self.pixel_size = abs(src.res[0])
-                if self.pixel_size == 0:
+                assert abs(src.res[0] - src.res[1]) < _EPSILON
+                pixel_size = abs(src.res[0])
+                if pixel_size == 0:
                     raise RuntimeError(
                         "Cannot infer pixel size from input file. "
                         "Please input it manually using `--pixel-size`."
                     )
+                self._pixel_size = pixel_size
 
-            self.endx: int = self.data.shape[0]
-            self.endy: int = self.data.shape[1]
+            self._endx: int = self._data.shape[0]
+            self._endy: int = self._data.shape[1]
 
     def _check_is_positive(
         self,
@@ -123,7 +152,7 @@ class GeoPolygonizer:
         if field_value <= 0:
             raise ValueError(f'Value for `{field_name}` must be positive.')
 
-    def _check_non_negative(
+    def _check_is_non_negative(
         self,
         field_name: str,
         field_value: float,  # encompasses int
@@ -132,7 +161,7 @@ class GeoPolygonizer:
             raise ValueError(f'Value for `{field_name}` must be non-negative.')
 
     def _clean(self, tile: np.ndarray) -> np.ndarray:
-        blobifier = Blobifier(tile, self.min_blob_size)
+        blobifier = Blobifier(tile, self._min_blob_size)
         cleaned = blobifier.blobify()
         return cleaned
 
@@ -140,14 +169,14 @@ class GeoPolygonizer:
         def smooth(segment: LineString) -> LineString:
             coords = chaikins_corner_cutting(
                 segment.coords,
-                self.smoothing_iterations
+                self._smoothing_iterations
             )
             return LineString(coords)
 
         return smooth
 
     def _generate_simplify_func(self) -> Callable[[LineString], LineString]:
-        tolerance = self.pixel_size * self.simplification_pixel_window
+        tolerance = self._pixel_size * self._simplification_pixel_window
 
         def simplify(segment: LineString) -> LineString:
             # Simplification will turn rings into what are effectively points.
@@ -170,7 +199,7 @@ class GeoPolygonizer:
         return simplify
 
     def _vectorize(self, tile: np.ndarray) -> gpd.GeoDataFrame:
-        shapes_gen = shapes(tile, transform=self.transform)
+        shapes_gen = shapes(tile, transform=self._transform)
         polygons_and_labels = list(zip(*shapes_gen))
         polygons: List[Polygon] = [shape(s) for s in polygons_and_labels[0]]
         labels: List[Any] = [v for v in polygons_and_labels[1]]
@@ -184,7 +213,7 @@ class GeoPolygonizer:
         modified_polygons = segmenter.get_result()
 
         gdf = gpd.GeoDataFrame(geometry=modified_polygons)
-        gdf[self.label_name] = labels
+        gdf[self._label_name] = labels
         return gdf
 
     def _process_tile(
@@ -192,7 +221,7 @@ class GeoPolygonizer:
         tile_parameters: TileParameters,
         tiler_parameters: TilerParameters,
     ) -> None:
-        buffer = self.min_blob_size - 1
+        buffer = self._min_blob_size - 1
 
         bx0 = max(tile_parameters.start_x-buffer, 0)
         by0 = max(tile_parameters.start_y-buffer, 0)
@@ -210,7 +239,7 @@ class GeoPolygonizer:
             empty = empty.set_geometry("geometry")
             return empty
 
-        tile_raster = self.data[bx0:bx1, by0:by1]
+        tile_raster = self._data[bx0:bx1, by0:by1]
         cleaned = self._clean(tile_raster)
 
         rel_start_x = tile_parameters.start_x - bx0
@@ -222,15 +251,15 @@ class GeoPolygonizer:
         gdf = self._vectorize(unbuffered)
 
         # in physical space, x and y are reversed
-        shift_x = tile_parameters.start_y * self.pixel_size
-        shift_y = -(tile_parameters.start_x * self.pixel_size)
+        shift_x = tile_parameters.start_y * self._pixel_size
+        shift_y = -(tile_parameters.start_x * self._pixel_size)
         gdf['geometry'] = gdf['geometry'].apply(
             lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
         )
-        gdf.crs = self.crs
+        gdf.crs = self._crs
 
         gdf.to_file(os.path.join(
-            self.temp_dir,
+            self._temp_dir,
             f"tile-{tile_parameters.start_x}-{tile_parameters.start_y}.shp",
         ))
 
@@ -238,24 +267,28 @@ class GeoPolygonizer:
         all_gdfs = []
 
         for filepath in tqdm(
-            glob.glob(os.path.join(self.temp_dir, "*.shp")),
+            glob.glob(os.path.join(self._temp_dir, "*.shp")),
             desc="Stitching tiles",
         ):
             gdf = gpd.read_file(filepath)
             all_gdfs.append(gdf)
-        shutil.rmtree(self.temp_dir)
+        shutil.rmtree(self._temp_dir)
 
         output_gdf = pd.concat(all_gdfs)
-        output_gdf = unify_by_label(output_gdf, self.label_name)
+        output_gdf = unify_by_label(output_gdf, self._label_name)
         return output_gdf
 
-    def run(self) -> None:
+    def geopolygonize(self) -> None:
+        """
+        Process inputs to get output.
+        """
+
         try:
             tiler_parameters = TilerParameters(
-                endx=self.endx,
-                endy=self.endy,
-                tile_size=self.tile_size,
-                num_processes=self.workers,
+                endx=self._endx,
+                endy=self._endy,
+                tile_size=self._tile_size,
+                num_processes=self._workers,
             )
             rz = Tiler(
                 tiler_parameters=tiler_parameters,
@@ -263,7 +296,7 @@ class GeoPolygonizer:
                 stitch_tiles=self._stitch_tiles,
             )
             gdf = rz.process()
-            gdf.to_file(self.output_file)
+            gdf.to_file(self._output_file)
 
         except Exception as e:
             raise e
