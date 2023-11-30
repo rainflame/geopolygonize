@@ -1,5 +1,8 @@
 import glob
 import os
+import multiprocessing
+import shutil
+import tempfile
 from tqdm import tqdm
 from typing import Any, Callable, Dict, List
 
@@ -7,40 +10,126 @@ from affine import Affine
 import geopandas as gpd
 import numpy as np
 import pandas as pd
+import rasterio
 from rasterio.crs import CRS
 from rasterio.features import shapes
 from shapely.affinity import translate
 from shapely.geometry import shape, LineString, Polygon
+import warnings
 
-from .utils.smoothing import chaikins_corner_cutting
 from .utils.blobifier import Blobifier
 from .utils.segmenter.segmenter import Segmenter
+from .utils.smoothing import chaikins_corner_cutting
+from .utils.tiler import Tiler, TileParameters, TilerParameters
+from .utils.unifier import unify_by_label
+
+warnings.filterwarnings("ignore", category=RuntimeWarning)
+
+EPSILON = 1.0e-10
 
 
 class GeoPolygonizer:
     def __init__(
         self,
-        data: np.ndarray,
-        meta: Dict[str, Any],
-        crs: CRS,
-        transform: Affine,
+        input_file: str,
+        output_file: str,
         label_name: str = 'label',
         min_blob_size: int = 5,
         pixel_size: int = 0,
         simplification_pixel_window: int = 1,
         smoothing_iterations: int = 0,
-        temp_dir: str = os.path.join("data", "temp")
-    ):
-        self.data = data
-        self.meta = meta
-        self.crs = crs
-        self.transform = transform
+        workers: int = 1,
+        tile_size: int = 100,
+    ) -> None:
+        inputs = glob.glob(input_file)
+        if len(inputs) >= 1:
+            self.input_file = inputs[0]
+        else:
+            raise ValueError(f'Input file does not exist: {input_file}')
+
+        output_dir = os.path.dirname(output_file)
+        if not os.path.exists(output_dir):
+            raise ValueError(f'Output directory does not exist: {output_dir}')
+        else:
+            self.output_file = output_file
+
         self.label_name = label_name
+
+        self._check_non_negative(
+            "--min-blob-size",
+            min_blob_size
+        )
         self.min_blob_size = min_blob_size
+
+        self._check_non_negative(
+            "--pixel-size",
+            pixel_size
+        )
         self.pixel_size = pixel_size
+
+        self._check_non_negative(
+            "--simplification-pixel-window",
+            simplification_pixel_window
+        )
         self.simplification_pixel_window = simplification_pixel_window
+
+        self._check_non_negative(
+            "--smoothing-iterations",
+            smoothing_iterations
+        )
         self.smoothing_iterations = smoothing_iterations
-        self.temp_dir = temp_dir
+
+        self._check_is_positive(
+            "--workers",
+            workers
+        )
+        if workers == 0:
+            self.workers = multiprocessing.cpu_count()
+        else:
+            self.workers = workers
+
+        self._check_is_positive(
+            "--tile-size",
+            tile_size
+        )
+        self.tile_size = tile_size
+
+        self.temp_dir = tempfile.mkdtemp()
+
+        with rasterio.open(input_file) as src:
+            self.data: np.ndarray = src.read(1)
+            self.meta: Dict[str, Any] = src.meta
+            self.crs: CRS = self.meta['crs']
+            self.transform: Affine = src.transform
+
+            if self.pixel_size == 0:
+                # assume pixel is square
+                assert abs(src.res[0] - src.res[1]) < EPSILON
+                self.pixel_size = abs(src.res[0])
+                if self.pixel_size == 0:
+                    raise RuntimeError(
+                        "Cannot infer pixel size from input file. "
+                        "Please input it manually using `--pixel-size`."
+                    )
+
+            self.endx: int = self.data.shape[0]
+            self.endy: int = self.data.shape[1]
+
+    def _check_is_positive(
+        self,
+        field_name: str,
+        field_value: float,  # encompasses int
+    ) -> None:
+        if field_value <= 0:
+            raise ValueError(f'Value for `{field_name}` must be positive.')
+
+    def _check_non_negative(
+        self,
+        field_name: str,
+        field_value: float,  # encompasses int
+    ) -> None:
+        if field_value < 0:
+            raise ValueError(f'Value for `{field_name}` must be non-negative.')
 
     def _clean(self, tile: np.ndarray) -> np.ndarray:
         blobifier = Blobifier(tile, self.min_blob_size)
@@ -98,7 +187,11 @@ class GeoPolygonizer:
         gdf[self.label_name] = labels
         return gdf
 
-    def process_tile(self, tile_parameters, tiler_parameters):
+    def _process_tile(
+        self,
+        tile_parameters: TileParameters,
+        tiler_parameters: TilerParameters,
+    ) -> None:
         buffer = self.min_blob_size - 1
 
         bx0 = max(tile_parameters.start_x-buffer, 0)
@@ -141,7 +234,7 @@ class GeoPolygonizer:
             f"tile-{tile_parameters.start_x}-{tile_parameters.start_y}.shp",
         ))
 
-    def stitch_tiles(self) -> gpd.GeoDataFrame:
+    def _stitch_tiles(self) -> gpd.GeoDataFrame:
         all_gdfs = []
 
         for filepath in tqdm(
@@ -150,6 +243,27 @@ class GeoPolygonizer:
         ):
             gdf = gpd.read_file(filepath)
             all_gdfs.append(gdf)
+        shutil.rmtree(self.temp_dir)
 
         output_gdf = pd.concat(all_gdfs)
+        output_gdf = unify_by_label(output_gdf, self.label_name)
         return output_gdf
+
+    def run(self) -> None:
+        try:
+            tiler_parameters = TilerParameters(
+                endx=self.endx,
+                endy=self.endy,
+                tile_size=self.tile_size,
+                num_processes=self.workers,
+            )
+            rz = Tiler(
+                tiler_parameters=tiler_parameters,
+                process_tile=self._process_tile,
+                stitch_tiles=self._stitch_tiles,
+            )
+            gdf = rz.process()
+            gdf.to_file(self.output_file)
+
+        except Exception as e:
+            raise e

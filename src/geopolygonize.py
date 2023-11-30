@@ -1,30 +1,6 @@
-import os
-import glob
 import click
-import multiprocessing
-import warnings
-import tempfile
-import shutil
-
-import rasterio
 
 from .geopolygonizer import GeoPolygonizer
-from .utils.unifier import unify_by_label
-from .utils.tiler import Tiler, TilerParameters
-
-warnings.filterwarnings("ignore", category=RuntimeWarning)
-
-EPSILON = 1.0e-10
-
-
-def check_is_positive(field_name, field_value):
-    if field_value <= 0:
-        raise ValueError(f'Value for `{field_name}` must be positive.')
-
-
-def check_non_negative(field_name, field_value):
-    if field_value < 0:
-        raise ValueError(f'Value for `{field_name}` must be non-negative.')
 
 
 @click.command(
@@ -88,9 +64,10 @@ def check_non_negative(field_name, field_value):
 )
 @click.option(
     '--workers',
-    default=multiprocessing.cpu_count(),
+    default=0,  # standard for use all cpus
     type=int,
-    help="Number of processes to spawn to process tiles in parallel."
+    help="Number of processes to spawn to process tiles in parallel. "
+         "Use 0 if you want to use all available CPUs."
 )
 def cli(
     input_file,
@@ -103,95 +80,18 @@ def cli(
     workers,
     tile_size,
 ):
-    inputs = glob.glob(input_file)
-    if len(inputs) >= 1:
-        input_file = inputs[0]
-    else:
-        raise ValueError(f'Input file does not exist: {input_file}')
-
-    output_dir = os.path.dirname(output_file)
-    if not os.path.exists(output_dir):
-        raise ValueError(f'Output directory does not exist: {output_dir}')
-
-    check_non_negative(
-        "--min-blob-size",
-        min_blob_size
+    geopolygonizer = GeoPolygonizer(
+        input_file=input_file,
+        output_file=output_file,
+        min_blob_size=min_blob_size,
+        pixel_size=pixel_size,
+        simplification_pixel_window=simplification_pixel_window,
+        smoothing_iterations=smoothing_iterations,
+        label_name=label_name,
+        workers=workers,
+        tile_size=tile_size,
     )
-    check_non_negative(
-        "--pixel-size",
-        pixel_size
-    )
-    check_non_negative(
-        "--simplification-pixel-window",
-        simplification_pixel_window
-    )
-    check_non_negative(
-        "--smoothing-iterations",
-        smoothing_iterations
-    )
-    check_is_positive(
-        "--workers",
-        workers
-    )
-    check_is_positive(
-        "--tile-size",
-        tile_size
-    )
-
-    with rasterio.open(input_file) as src:
-        data = src.read(1)
-        meta = src.meta
-        crs = meta['crs']
-        transform = src.transform
-        res = src.res
-
-    endx = data.shape[0]
-    endy = data.shape[1]
-
-    if pixel_size == 0:
-        # assume pixel is square
-        assert abs(res[0] - res[1]) < EPSILON
-        pixel_size = abs(res[0])
-        if pixel_size == 0:
-            raise RuntimeError(
-                "Cannot infer pixel size from input file. "
-                "Please input it manually using `--pixel-size`."
-            )
-
-    try:
-        temp_dir = tempfile.mkdtemp()
-        geopolygonizer = GeoPolygonizer(
-            data=data,
-            meta=meta,
-            crs=crs,
-            transform=transform,
-            label_name=label_name,
-            min_blob_size=min_blob_size,
-            pixel_size=pixel_size,
-            simplification_pixel_window=simplification_pixel_window,
-            smoothing_iterations=smoothing_iterations,
-            temp_dir=temp_dir,
-        )
-
-        tiler_parameters = TilerParameters(
-            endx=endx,
-            endy=endy,
-            tile_size=tile_size,
-            num_processes=workers,
-        )
-        rz = Tiler(
-            tiler_parameters=tiler_parameters,
-            process_tile=geopolygonizer.process_tile,
-            stitch_tiles=geopolygonizer.stitch_tiles,
-        )
-        gdf = rz.process()
-        union_gdf = unify_by_label(gdf, label_name)
-        union_gdf.to_file(output_file)
-
-    except Exception as e:
-        raise e
-    finally:
-        shutil.rmtree(temp_dir)
+    geopolygonizer.run()
 
 
 if __name__ == '__main__':
