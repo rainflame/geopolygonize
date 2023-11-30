@@ -20,9 +20,9 @@ To convert a raster to simplified polygons, run:
 geopolygonize --input-file="data/input.tif" --output-file="data/output.shp"
 ```
 
-## Options
+## Options + API
 
-Refer to [docs](./docs/index.html).
+Refer to the [docs](https://rainflame.github.io/geopolygonize).
 
 ## Development
 
