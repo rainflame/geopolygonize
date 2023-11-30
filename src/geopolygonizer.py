@@ -18,8 +18,8 @@ from shapely.affinity import translate
 from shapely.geometry import shape, LineString, Polygon
 import warnings
 
-from .utils.blobifier import Blobifier
-from .utils.segmenter.segmenter import Segmenter
+from .blobifier.blobifier import Blobifier
+from .segmenter.segmenter import Segmenter
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import Tiler, TileParameters, TilerParameters
 from .utils.unifier import unify_by_label
