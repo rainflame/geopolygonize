@@ -19,9 +19,6 @@ class Boundary(object):
         idx: int,
         boundary: LineString,
     ) -> None:
-        # A boundary of a polygon is also a ring (closed and simple).
-        # We use Boundary on the cutpoints of a polygon, which may
-        # not result in a simple line, but should result in a closed one.
         assert boundary.is_closed
 
         self.idx = idx
@@ -56,7 +53,7 @@ class Boundary(object):
             self._seg_idx.insert(i, bbox)
 
     def _setup_temporary_variables(self) -> None:
-        self._ring_intersections: Dict[NeighborIdx, LineString] = {}
+        self._closed_intersections: Dict[NeighborIdx, LineString] = {}
         self._intersections: Dict[NeighborIdx, List[LineString]] = {}
 
         # Cutpoints are points that define the endpoints of the segments.
@@ -108,16 +105,16 @@ class Boundary(object):
         self._sort_cache[point] = distance
         return distance
 
-    def add_ring_intersection(
+    def add_closed_intersection(
         self,
         other, #: Boundary,
-        ring: LineString,
+        closed: LineString,
     ) -> None:
-        assert ring.is_ring
-        self._ring_intersections[other.idx] = ring
+        assert closed.is_closed
+        self._closed_intersections[other.idx] = closed
 
-    def get_ring_intersections(self) -> ItemsView[NeighborIdx, LineString]:
-        return self._ring_intersections.items()
+    def get_closed_intersections(self) -> ItemsView[NeighborIdx, LineString]:
+        return self._closed_intersections.items()
 
     def add_intersection(
         self,

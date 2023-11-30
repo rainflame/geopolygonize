@@ -40,7 +40,7 @@ class CutpointsComputer:
             cutpoints = [boundary_start_end]
             for _n, intersection_segments in boundary.get_intersections():
                 for intersection_segment in intersection_segments:
-                    if intersection_segment.is_ring:
+                    if intersection_segment.is_closed:
                         continue
                     start = Point(intersection_segment.coords[0])
                     end = Point(intersection_segment.coords[-1])
@@ -59,7 +59,7 @@ class CutpointsComputer:
 
             intersections = curr_boundary.get_border_intersections()
 
-            keep_all = len(intersections) == 1 and intersections[0].is_ring
+            keep_all = len(intersections) == 1 and intersections[0].is_closed
             if keep_all:
                 for coord in list(curr_boundary.line.coords):
                     cutpoint = Point(coord)
