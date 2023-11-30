@@ -29,11 +29,11 @@ class ReferencesComputer:
         for i, segment in enumerate(curr_boundary.segments):
             curr_boundary.add_potential_reference(segment)
 
-    def _consider_neighbor_for_ring_segments(
+    def _consider_neighbor_for_closed_segments(
         self,
         curr_boundary: Boundary,
     ) -> None:
-        for o, _ring in curr_boundary.get_ring_intersections():
+        for o, _closed in curr_boundary.get_closed_intersections():
             if o <= curr_boundary.idx:
                 continue
             other_boundary = self.boundaries[o]
@@ -99,7 +99,7 @@ class ReferencesComputer:
 
         for b in range(len(self.boundaries)):
             curr_boundary = self.boundaries[b]
-            self._consider_neighbor_for_ring_segments(curr_boundary)
+            self._consider_neighbor_for_closed_segments(curr_boundary)
 
         for b in range(len(self.boundaries)):
             curr_boundary = self.boundaries[b]

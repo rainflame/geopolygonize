@@ -79,9 +79,9 @@ class IntersectionsComputer:
                 break  # reached termination in former half of segment
             unvisited.remove(prev_piece)
 
-        is_ring = len(former_section) > 2 \
+        is_closed = len(former_section) > 2 \
             and Point(former_section[-1]) == piece.start
-        if is_ring:
+        if is_closed:
             latter_section = []
         else:
             curr = piece.end
@@ -130,18 +130,18 @@ class IntersectionsComputer:
         if len(intersection_segments) == 0:
             return
 
-        is_ring = False
+        is_closed = False
         for intersection_segment in intersection_segments:
-            if intersection_segment.is_ring:
-                is_ring = True
+            if intersection_segment.is_closed:
+                is_closed = True
 
-        if is_ring:
+        if is_closed:
             assert len(intersection_segments) == 1, \
-                "If the intersection with another boundary is a "\
-                "ring, expect the ring to be the only intersection."
-            ring = intersection_segments[0]
-            curr.add_ring_intersection(other, ring)
-            other.add_ring_intersection(curr, ring)
+                "If the intersection with another boundary is closed, "\
+                "expect the closed line to be the only intersection."
+            closed = intersection_segments[0]
+            curr.add_closed_intersection(other, closed)
+            other.add_closed_intersection(curr, closed)
         else:
             curr.add_intersection(other, intersection_segments)
             other.add_intersection(curr, intersection_segments)
