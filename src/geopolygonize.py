@@ -17,6 +17,11 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 EPSILON = 1.0e-10
 
 
+def check_non_negative(field_name, field_value):
+    if field_value < 0:
+        raise ValueError(f'Value for `{field_name}` must be non-negative.')
+
+
 @click.command(
     name="Geopolygonize",
     help="Convert a geographic raster file into simplified polygons",
@@ -36,6 +41,7 @@ EPSILON = 1.0e-10
 @click.option(
     '--min-blob-size',
     default=30,
+    type=int,
     help="The minimum number of pixels with the same value. "
          "Blobs smaller than this will be filtered out and replaced.",
 )
@@ -49,6 +55,7 @@ EPSILON = 1.0e-10
 @click.option(
     "--simplification-pixel-window",
     default=1,
+    type=float,
     help="The amount of simplification applied relative to the pixel size. "
          "The higher the number, the more simplified the output. "
          "For example, with a pixel size of 30 meters and a simplification "
@@ -57,23 +64,27 @@ EPSILON = 1.0e-10
 @click.option(
     "--smoothing-iterations",
     default=0,
+    type=int,
     help="The number of iterations of smoothing to run on the "
          "output polygons.",
 )
 @click.option(
     '--tile-size',
     default=200,
+    type=int,
     help="Tile size in pixels",
 )
 @click.option(
     '--label-name',
     default='label',
+    type=str,
     help="The name of the attribute to store the original "
          "pixel value in the output.",
 )
 @click.option(
     '--workers',
     default=multiprocessing.cpu_count(),
+    type=int,
     help="Number of processes to spawn to process tiles in parallel."
 )
 def cli(
@@ -96,6 +107,31 @@ def cli(
     output_dir = os.path.dirname(output_file)
     if not os.path.exists(output_dir):
         raise ValueError(f'Output directory does not exist: {output_dir}')
+
+    check_non_negative(
+        "--min-blob-size",
+        min_blob_size
+    )
+    check_non_negative(
+        "--pixel-size",
+        pixel_size
+    )
+    check_non_negative(
+        "--simplification-pixel-window",
+        simplification_pixel_window
+    )
+    check_non_negative(
+        "--smoothing-iterations",
+        smoothing_iterations
+    )
+    check_non_negative(
+        "--workers",
+        workers
+    )
+    check_non_negative(
+        "--tile-size",
+        tile_size
+    )
 
     with rasterio.open(input_file) as src:
         data = src.read(1)
