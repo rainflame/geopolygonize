@@ -1,8 +1,9 @@
 from geopandas import GeoDataFrame, GeoSeries
+from shapely import Geometry
 from shapely.ops import unary_union
 
 
-def unify(gs: GeoSeries):
+def unify(gs: GeoSeries) -> Geometry:
     geometries = gs.tolist()
     union = unary_union(geometries)
     return union
