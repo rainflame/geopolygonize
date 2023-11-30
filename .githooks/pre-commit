@@ -2,6 +2,8 @@
 
 if [[ $(git diff --cached --name-only src/) ]]; then
     echo "Updating docs..."
+    SCRIPT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")" &> /dev/null && pwd)
+    cd "$SCRIPT_DIR/.."
     source .venv/bin/activate
     pdoc src/geopolygonizer.py -o docs
     git add docs
