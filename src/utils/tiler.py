@@ -1,9 +1,12 @@
 from dataclasses import dataclass
 import multiprocessing as mp
+import os
 from typing import Any, Callable, List, Tuple
 from tqdm import tqdm
 
 import geopandas as gpd
+
+from .clean_exit import CleanExit, kill_children, set_clean_exit
 
 
 @dataclass
@@ -56,11 +59,15 @@ class Tiler:
         ],
         TilerParameters,
     ]) -> None:
-        tile_parameters, process_tile, tiler_parameters = args
-        process_tile(
-            tile_parameters,
-            tiler_parameters,
-        )
+        try:
+            tile_parameters, process_tile, tiler_parameters = args
+            process_tile(
+                tile_parameters,
+                tiler_parameters,
+            )
+        except CleanExit:
+            print(f"[{os.getpid()}] clean exit")
+            pass
 
     def _process_tiles(
         self,
@@ -73,15 +80,24 @@ class Tiler:
             self.tiler_parameters,
         ) for tile_parameters in all_tile_parameters]
 
-        with mp.Pool(processes=tp.num_processes) as pool:
+        pool = mp.Pool(processes=tp.num_processes)
+        try:
             for _ in tqdm(
                 pool.imap_unordered(self._process_tile_wrapper, all_args),
                 total=len(all_args),
                 desc="Processing tiles"
             ):
                 pass
+            pool.close()
+            pool.join()
+        except Exception as e:
+            kill_children()
+            raise e
 
     def process(self) -> Any:
+        set_clean_exit()
+
+        output = None
         all_tile_parameters = self._generate_tiles()
         self._process_tiles(all_tile_parameters)
         output = self.stitch_tiles()

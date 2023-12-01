@@ -1,6 +1,8 @@
 import click
+import sys
 
 from .geopolygonizer import GeoPolygonizer, GeoPolygonizerParams
+from .utils.clean_exit import CleanExit
 
 
 @click.command(

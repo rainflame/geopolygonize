@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 import glob
-import os
 import multiprocessing
+import os
 import shutil
 import tempfile
 from tqdm import tqdm
@@ -21,6 +21,7 @@ import warnings
 from .blobifier.blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
 from .utils.smoothing import chaikins_corner_cutting
+from .utils.clean_exit import kill_self
 from .utils.tiler import Tiler, TileParameters, TilerParameters
 from .utils.unifier import unify_by_label
 
@@ -144,6 +145,10 @@ class GeoPolygonizer:
             self._endx: int = self._data.shape[0]
             self._endy: int = self._data.shape[1]
 
+        fd, filepath = tempfile.mkstemp()
+        print(f"Logs at {filepath}")
+        self._log_fd = fd
+
     def _check_is_positive(
         self,
         field_name: str,
@@ -221,47 +226,55 @@ class GeoPolygonizer:
         tile_parameters: TileParameters,
         tiler_parameters: TilerParameters,
     ) -> None:
-        buffer = self._min_blob_size - 1
+        try:
+            buffer = self._min_blob_size - 1
 
-        bx0 = max(tile_parameters.start_x-buffer, 0)
-        by0 = max(tile_parameters.start_y-buffer, 0)
-        bx1 = min(
-            tile_parameters.start_x+tile_parameters.width+buffer,
-            tiler_parameters.endx
-        )
-        by1 = min(
-            tile_parameters.start_y+tile_parameters.height+buffer,
-            tiler_parameters.endy
-        )
+            bx0 = max(tile_parameters.start_x-buffer, 0)
+            by0 = max(tile_parameters.start_y-buffer, 0)
+            bx1 = min(
+                tile_parameters.start_x+tile_parameters.width+buffer,
+                tiler_parameters.endx
+            )
+            by1 = min(
+                tile_parameters.start_y+tile_parameters.height+buffer,
+                tiler_parameters.endy
+            )
 
-        if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
-            empty = gpd.GeoDataFrame({"geometry": []})
-            empty = empty.set_geometry("geometry")
-            return empty
+            if bx1 - bx0 <= 2 * buffer or by1 - by0 <= 2 * buffer:
+                empty = gpd.GeoDataFrame({"geometry": []})
+                empty = empty.set_geometry("geometry")
+                return empty
 
-        tile_raster = self._data[bx0:bx1, by0:by1]
-        cleaned = self._clean(tile_raster)
+            tile_raster = self._data[bx0:bx1, by0:by1]
+            cleaned = self._clean(tile_raster)
 
-        rel_start_x = tile_parameters.start_x - bx0
-        rel_start_y = tile_parameters.start_y - by0
-        rel_end_x = min(rel_start_x + tile_parameters.width, bx1)
-        rel_end_y = min(rel_start_y + tile_parameters.height, by1)
+            rel_start_x = tile_parameters.start_x - bx0
+            rel_start_y = tile_parameters.start_y - by0
+            rel_end_x = min(rel_start_x + tile_parameters.width, bx1)
+            rel_end_y = min(rel_start_y + tile_parameters.height, by1)
 
-        unbuffered = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
-        gdf = self._vectorize(unbuffered)
+            unbuffered = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
+            gdf = self._vectorize(unbuffered)
 
-        # in physical space, x and y are reversed
-        shift_x = tile_parameters.start_y * self._pixel_size
-        shift_y = -(tile_parameters.start_x * self._pixel_size)
-        gdf['geometry'] = gdf['geometry'].apply(
-            lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
-        )
-        gdf.crs = self._crs
+            # in physical space, x and y are reversed
+            shift_x = tile_parameters.start_y * self._pixel_size
+            shift_y = -(tile_parameters.start_x * self._pixel_size)
+            gdf['geometry'] = gdf['geometry'].apply(
+                lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
+            )
+            gdf.crs = self._crs
 
-        gdf.to_file(os.path.join(
-            self._temp_dir,
-            f"tile-{tile_parameters.start_x}-{tile_parameters.start_y}.shp",
-        ))
+            gdf.to_file(os.path.join(
+                self._temp_dir,
+                "tile-"
+                f"{tile_parameters.start_x}-{tile_parameters.start_y}.shp",
+            ))
+        except Exception as e:
+            message = f"[{os.getpid()}] Exception at " \
+                f"({tile_parameters.start_x}, {tile_parameters.start_y}): " \
+                f"{e}\n"
+            with os.fdopen(self._log_fd, 'w') as tmp:
+                tmp.write(message)
 
     def _stitch_tiles(self) -> gpd.GeoDataFrame:
         all_gdfs = []
@@ -272,7 +285,6 @@ class GeoPolygonizer:
         ):
             gdf = gpd.read_file(filepath)
             all_gdfs.append(gdf)
-        shutil.rmtree(self._temp_dir)
 
         output_gdf = pd.concat(all_gdfs)
         output_gdf = unify_by_label(output_gdf, self._label_name)
@@ -298,5 +310,8 @@ class GeoPolygonizer:
             gdf = rz.process()
             gdf.to_file(self._output_file)
 
+            shutil.rmtree(self._temp_dir)
+            os.close(self._log_fd)
         except Exception as e:
-            raise e
+            print(f"Geopolygonizer encountered error: {e}")
+            kill_self()
