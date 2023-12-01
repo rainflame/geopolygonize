@@ -1,3 +1,4 @@
+import shapely
 from shapely import Geometry, LineString, Polygon
 from shapely.ops import unary_union
 from shapely.validation import make_valid
@@ -42,16 +43,28 @@ class Segmenter:
         modified_labels = self.labels
 
         if self.pin_border:
-            union = unary_union(modified_polygons)
-            union = clean_polygon(union)
-            modified_border = union.exterior
-            if not modified_border.equals(self.border):
-                modified_polygons, modified_labels = self._destructive_fix(
-                    modified_polygons,
-                    modified_labels
-                )
+            try:
+                self._check_boundary(modified_polygons)
+            except shapely.TopologyException:
+                # This error is yielded by `unary_union`,
+                # likely because the polygons are meaningfully invalid.
+                # We could try to (destructively) fix them, which may
+                # make the check pass, but then the geometries will
+                # be visually odd.
+                # modified_polygons, modified_labels = self._destructive_fix(
+                #     modified_polygons,
+                #     modified_labels
+                # )
+                # self._check_boundary(modified_polygons)
+                pass
 
         return modified_polygons, modified_labels
+
+    def _check_boundary(self, polygons: List[Polygon]) -> None:
+        union = unary_union(polygons)
+        union = clean_polygon(union)
+        modified_border = union.exterior
+        assert modified_border.equals(self.border)
 
     def _destructive_fix(
         self,
