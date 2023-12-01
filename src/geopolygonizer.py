@@ -127,7 +127,6 @@ class GeoPolygonizer:
 
         with rasterio.open(params.input_file) as src:
             self._data: np.ndarray = src.read(1)
-
             self._meta: Dict[str, Any] = src.meta
             self._crs: CRS = self._meta['crs']
             self._transform: Affine = src.transform
@@ -214,24 +213,9 @@ class GeoPolygonizer:
             polygons=polygons,
             pin_border=True,
         )
-
-        from .visualization import get_show_config, show_raster, show_polygons
-        cmap, min_value, max_value = get_show_config(tile)
-        print("Input raster")
-        show_raster(tile, cmap, min_value, max_value)
-        print("Polygons:build")
-        show_polygons(polygons)
-        print("Polygons: rebuild")
-        modified_polygons = segmenter.get_result()
-        show_polygons(modified_polygons)
-        print("Simplify")
         segmenter.run_per_segment(self._generate_simplify_func())
-        modified_polygons = segmenter.get_result()
-        show_polygons(modified_polygons)
-        print("Smoothing")
         segmenter.run_per_segment(self._generate_smoothing_func())
         modified_polygons = segmenter.get_result()
-        show_polygons(modified_polygons)
 
         gdf = gpd.GeoDataFrame(geometry=modified_polygons)
         gdf[self._label_name] = labels
