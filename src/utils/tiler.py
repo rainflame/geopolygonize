@@ -99,6 +99,10 @@ class Tiler:
 
         output = None
         all_tile_parameters = self._generate_tiles()
-        self._process_tiles(all_tile_parameters)
+        some_tile_parameters = list(filter(
+            lambda x: (x.start_x == 2400 and x.start_y == 2400),
+            all_tile_parameters
+        ))
+        self._process_tiles(some_tile_parameters)
         output = self.stitch_tiles()
         return output

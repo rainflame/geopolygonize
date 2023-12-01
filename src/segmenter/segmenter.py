@@ -37,6 +37,14 @@ class Segmenter:
 
         modified_polygons = [a.modified_polygon for a in self._areas]
 
+        # TODO: Hypothesis: A polygon is invalid.
+        # I.e. An interior boundary is touching exterior boundary.
+        # https://groups.google.com/g/postgis-users/c/kdWJRt0PYKc/m/SubzGr2ceZAJ
+        # https://stackoverflow.com/questions/20833344/fix-invalid-polygon-in-shapely
+        for mp in modified_polygons:
+            if not mp.is_valid:
+                raise ValueError(f"Found invalid polygon: {mp.coords}")
+
         if self.pin_border:
             union = unary_union(modified_polygons)
             modified_border = clean_polygon(union).exterior
