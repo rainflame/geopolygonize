@@ -211,14 +211,15 @@ class GeoPolygonizer:
 
         segmenter = Segmenter(
             polygons=polygons,
+            labels=labels,
             pin_border=True,
         )
         segmenter.run_per_segment(self._generate_simplify_func())
         segmenter.run_per_segment(self._generate_smoothing_func())
-        modified_polygons = segmenter.get_result()
+        modified_polygons, modified_labels = segmenter.get_result()
 
         gdf = gpd.GeoDataFrame(geometry=modified_polygons)
-        gdf[self._label_name] = labels
+        gdf[self._label_name] = modified_labels
         return gdf
 
     def _process_tile(
