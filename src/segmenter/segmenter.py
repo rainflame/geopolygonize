@@ -1,5 +1,6 @@
 from shapely import LineString, Polygon
 from shapely.ops import unary_union
+from shapely.validation import make_valid
 from typing import Callable, List
 
 from .area import Area
@@ -37,13 +38,21 @@ class Segmenter:
 
         modified_polygons = [a.modified_polygon for a in self._areas]
 
-        # TODO: Hypothesis: A polygon is invalid.
-        # I.e. An interior boundary is touching exterior boundary.
-        # https://groups.google.com/g/postgis-users/c/kdWJRt0PYKc/m/SubzGr2ceZAJ
-        # https://stackoverflow.com/questions/20833344/fix-invalid-polygon-in-shapely
+        fixed_polygons: List[Polygon] = []
         for mp in modified_polygons:
             if not mp.is_valid:
-                raise ValueError(f"Found invalid polygon: {mp.coords}")
+                print("Found invalid polygon; fixing")
+                fixed = make_valid(mp)
+                if fixed.geom_type == "Polygon":
+                    fixed_polygons.append(fixed)
+                elif fixed.geom_type == "MultiPolygon":
+                    print("Fix is a MultiPolygon")
+                    # TODO: If this is common, maybe need better solution.
+                    chosen = list(fixed.geoms)[0]
+                    fixed_polygons.append(chosen)
+            else:
+                fixed_polygons.append(mp)
+        modified_polygons = fixed_polygons
 
         if self.pin_border:
             union = unary_union(modified_polygons)
