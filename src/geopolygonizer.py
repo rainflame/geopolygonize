@@ -146,7 +146,7 @@ class GeoPolygonizer:
             self._endy: int = self._data.shape[1]
 
         fd, filepath = tempfile.mkstemp()
-        print(f"Logs at {filepath}")
+        print(f"Tile errors logged in {filepath}")
         self._log_fd = fd
 
     def _check_is_positive(
