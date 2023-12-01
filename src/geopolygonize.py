@@ -1,8 +1,7 @@
 import click
-import sys
 
 from .geopolygonizer import GeoPolygonizer, GeoPolygonizerParams
-from .utils.clean_exit import CleanExit
+from .utils.clean_exit import kill_self
 
 
 @click.command(
@@ -79,18 +78,22 @@ def cli(
     workers,
     tile_size,
 ):
-    params = GeoPolygonizerParams(
-        input_file=input_file,
-        output_file=output_file,
-        label_name=label_name,
-        min_blob_size=min_blob_size,
-        pixel_size=pixel_size,
-        simplification_pixel_window=simplification_pixel_window,
-        smoothing_iterations=smoothing_iterations,
-        workers=workers,
-        tile_size=tile_size,
-    )
-    GeoPolygonizer(params).geopolygonize()
+    try:
+        params = GeoPolygonizerParams(
+            input_file=input_file,
+            output_file=output_file,
+            label_name=label_name,
+            min_blob_size=min_blob_size,
+            pixel_size=pixel_size,
+            simplification_pixel_window=simplification_pixel_window,
+            smoothing_iterations=smoothing_iterations,
+            workers=workers,
+            tile_size=tile_size,
+        )
+        GeoPolygonizer(params).geopolygonize()
+    except Exception as e:
+        print(f"geopolygonize encountered error: {e}")
+        kill_self()
 
 
 if __name__ == '__main__':

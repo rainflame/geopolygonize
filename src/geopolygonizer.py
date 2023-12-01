@@ -21,7 +21,6 @@ import warnings
 from .blobifier.blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
 from .utils.smoothing import chaikins_corner_cutting
-from .utils.clean_exit import kill_self
 from .utils.tiler import Tiler, TileParameters, TilerParameters
 from .utils.unifier import unify_by_label
 
@@ -296,23 +295,19 @@ class GeoPolygonizer:
         Process inputs to get output.
         """
 
-        try:
-            tiler_parameters = TilerParameters(
-                endx=self._endx,
-                endy=self._endy,
-                tile_size=self._tile_size,
-                num_processes=self._workers,
-            )
-            rz = Tiler(
-                tiler_parameters=tiler_parameters,
-                process_tile=self._process_tile,
-                stitch_tiles=self._stitch_tiles,
-            )
-            gdf = rz.process()
-            gdf.to_file(self._output_file)
+        tiler_parameters = TilerParameters(
+            endx=self._endx,
+            endy=self._endy,
+            tile_size=self._tile_size,
+            num_processes=self._workers,
+        )
+        rz = Tiler(
+            tiler_parameters=tiler_parameters,
+            process_tile=self._process_tile,
+            stitch_tiles=self._stitch_tiles,
+        )
+        gdf = rz.process()
+        gdf.to_file(self._output_file)
 
-            shutil.rmtree(self._temp_dir)
-            os.close(self._log_fd)
-        except Exception as e:
-            print(f"Geopolygonizer encountered error: {e}")
-            kill_self()
+        shutil.rmtree(self._temp_dir)
+        os.close(self._log_fd)
