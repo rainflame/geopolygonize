@@ -1,7 +1,7 @@
-from shapely import LineString, Polygon
+from shapely import Geometry, LineString, Polygon
 from shapely.ops import unary_union
 from shapely.validation import make_valid
-from typing import Callable, List
+from typing import Callable, List, Tuple
 
 from .area import Area
 from .boundary import Boundary
@@ -16,9 +16,11 @@ class Segmenter:
     def __init__(
         self,
         polygons: List[Polygon],
+        labels: List[str],
         pin_border: bool,
     ) -> None:
         self.polygons = polygons
+        self.labels = labels
         self.pin_border = pin_border
 
         self._build()
@@ -33,33 +35,51 @@ class Segmenter:
             )
             reference.modified_line = modified_line
 
-    def get_result(self) -> List[Polygon]:
+    def get_result(self) -> Tuple[List[Polygon], List[str]]:
         self._rebuild()
 
         modified_polygons = [a.modified_polygon for a in self._areas]
-
-        fixed_polygons: List[Polygon] = []
-        for mp in modified_polygons:
-            if not mp.is_valid:
-                print("Found invalid polygon; fixing")
-                fixed = make_valid(mp)
-                if fixed.geom_type == "Polygon":
-                    fixed_polygons.append(fixed)
-                elif fixed.geom_type == "MultiPolygon":
-                    print("Fix is a MultiPolygon")
-                    # TODO: If this is common, maybe need better solution.
-                    chosen = list(fixed.geoms)[0]
-                    fixed_polygons.append(chosen)
-            else:
-                fixed_polygons.append(mp)
-        modified_polygons = fixed_polygons
+        modified_labels = self.labels
 
         if self.pin_border:
             union = unary_union(modified_polygons)
-            modified_border = clean_polygon(union).exterior
-            assert modified_border.equals(self.border)
+            union = clean_polygon(union)
+            modified_border = union.exterior
+            if not modified_border.equals(self.border):
+                modified_polygons, modified_labels = self._destructive_fix(
+                    modified_polygons,
+                    modified_labels
+                )
 
-        return modified_polygons
+        return modified_polygons, modified_labels
+
+    def _destructive_fix(
+        self,
+        polygons: List[Polygon],
+        labels: List[str],
+    ) -> Tuple[List[Polygon], List[str]]:
+        def flatten(geo: Geometry) -> List[Polygon]:
+            polygons: List[Polygon] = []
+            if geo.geom_type == "Polygon":
+                polygons.append(geo)
+            elif geo.geom_type == "MultiPolygon":
+                polygons.extend(list(geo.geoms))
+            return polygons
+
+        fixed_polygons: List[Polygon] = []
+        fixed_labels: List[str] = []
+        for i, mp in enumerate(polygons):
+            label = labels[i]
+            if not mp.is_valid:
+                fixed = make_valid(mp)
+                polygons = flatten(fixed)
+                fixed_polygons.extend(polygons)
+                fixed_labels.extend([label] * len(polygons))
+            else:
+                fixed_polygons.append(mp)
+                fixed_labels.append(label)
+
+        return fixed_polygons, fixed_labels
 
     def _build(self) -> None:
         if self.pin_border:
