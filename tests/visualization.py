@@ -62,7 +62,7 @@ def show_polygons(polygons, labels=None, color_map=None):
         if polygon.geom_type == "Polygon":
             ps.append(polygon)
         elif polygon.geom_type == "MultiPolygon":
-            for p in polygon:
+            for p in list(polygon.geoms):
                 ps.append(p)
 
         patches = []
@@ -71,7 +71,8 @@ def show_polygons(polygons, labels=None, color_map=None):
             patch = PolygonPatch(list(zip(x, y)), closed=True)
             patches.append(patch)
         collection = PatchCollection(patches, alpha=0.3)
-        collection.set_array(color)
+        collection.set_color(color)
+        collection.set_edgecolor("black")
         ax.add_collection(collection)
 
     plt.axis('equal')
