@@ -70,7 +70,7 @@ class Segmenter:
             if not mp.is_valid:
                 fixed = fix_polygon(mp)
                 fixed_polygons.extend(fixed)
-                fixed_labels.append([label] * len(fixed))
+                fixed_labels.extend([label] * len(fixed))
             else:
                 fixed_polygons.append(mp)
                 fixed_labels.append(label)
