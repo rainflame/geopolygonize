@@ -122,7 +122,7 @@ class GeoPolygonizer:
         self._workers = multiprocessing.cpu_count() \
             if params.workers == 0 else params.workers
 
-        self._temp_dir = tempfile.mkdtemp()
+        self._work_dir = tempfile.mkdtemp()
 
         with rasterio.open(params.input_file) as src:
             self._data: np.ndarray = src.read(1)
@@ -144,9 +144,8 @@ class GeoPolygonizer:
             self._endx: int = self._data.shape[0]
             self._endy: int = self._data.shape[1]
 
-        fd, filepath = tempfile.mkstemp()
-        print(f"Tile errors logged in {filepath}")
-        self._log_fd = fd
+        self._log_dir = tempfile.mkdtemp()
+        print(f"Tile errors logged per-process in {self._log_dir}")
 
     def _check_is_positive(
         self,
@@ -265,22 +264,24 @@ class GeoPolygonizer:
             gdf.crs = self._crs
 
             gdf.to_file(os.path.join(
-                self._temp_dir,
+                self._work_dir,
                 "tile-"
                 f"{tile_parameters.start_x}-{tile_parameters.start_y}.shp",
             ))
         except Exception as e:
-            message = f"[{os.getpid()}] Exception at " \
+            pid = os.getpid()
+            message = f"[{pid}] Exception at " \
                 f"({tile_parameters.start_x}, {tile_parameters.start_y}): " \
                 f"{e}\n"
-            with os.fdopen(self._log_fd, 'w') as tmp:
-                tmp.write(message)
+            filepath = os.path.join(self._log_dir, f"log-{pid}")
+            with open(filepath, 'w') as file:
+                file.write(message)
 
     def _stitch_tiles(self) -> gpd.GeoDataFrame:
         all_gdfs = []
 
         for filepath in tqdm(
-            glob.glob(os.path.join(self._temp_dir, "*.shp")),
+            glob.glob(os.path.join(self._work_dir, "*.shp")),
             desc="Stitching tiles",
         ):
             gdf = gpd.read_file(filepath)
@@ -309,5 +310,4 @@ class GeoPolygonizer:
         gdf = rz.process()
         gdf.to_file(self._output_file)
 
-        shutil.rmtree(self._temp_dir)
-        os.close(self._log_fd)
+        shutil.rmtree(self._work_dir)
