@@ -306,7 +306,7 @@ class GeoPolygonizer:
             all_gdfs.append(gdf)
 
         output_gdf = pd.concat(all_gdfs)
-        #output_gdf = unify_by_label(output_gdf, self._label_name)
+        output_gdf = unify_by_label(output_gdf, self._label_name)
         return output_gdf
 
     def geopolygonize(self) -> None:

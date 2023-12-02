@@ -47,8 +47,8 @@ class Segmenter:
             modified_labels
         )
 
-        #if self.pin_border:
-        #    self._check_boundary(modified_polygons)
+        if self.pin_border:
+            self._check_boundary(modified_polygons)
 
         return modified_polygons, modified_labels
 
