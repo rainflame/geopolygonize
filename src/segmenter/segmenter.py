@@ -1,4 +1,4 @@
-import shapely
+from shapely import errors
 from shapely import Geometry, LineString, Polygon
 from shapely.ops import unary_union
 from shapely.validation import make_valid
@@ -45,8 +45,9 @@ class Segmenter:
         if self.pin_border:
             try:
                 self._check_boundary(modified_polygons)
-            except shapely.TopologyException:
-                # This error is yielded by `unary_union`,
+            except errors.GEOSException as e:
+                print(f"Encountered GEOSException: {e}")
+                # The TopologyException is yielded by `unary_union`,
                 # likely because the polygons are meaningfully invalid.
                 # We could try to (destructively) fix them, which may
                 # make the check pass, but then the geometries will
