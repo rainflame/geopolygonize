@@ -2,7 +2,6 @@ from dataclasses import dataclass
 import glob
 import multiprocessing
 import os
-import shutil
 import tempfile
 from tqdm import tqdm
 from typing import Any, Callable, Dict, List
@@ -52,6 +51,13 @@ class GeoPolygonizerParams:
     """The number of iterations of smoothing to run on the output polygons."""
     tile_size: int = 100
     """Tile size in pixels"""
+    tile_dir: str | None = None
+    """
+    The directory to create tiles in.
+    If a tile already exists, it will not be recreated.
+    If this parameter is `None`,
+    the directory will be a temporary directory that is reported.
+    """
     workers: int = 1
     """
     Number of processes to spawn to process tiles in parallel.
@@ -122,8 +128,6 @@ class GeoPolygonizer:
         self._workers = multiprocessing.cpu_count() \
             if params.workers == 0 else params.workers
 
-        self._work_dir = tempfile.mkdtemp()
-
         with rasterio.open(params.input_file) as src:
             self._data: np.ndarray = src.read(1)
             self._meta: Dict[str, Any] = src.meta
@@ -144,6 +148,11 @@ class GeoPolygonizer:
             self._endx: int = self._data.shape[0]
             self._endy: int = self._data.shape[1]
 
+        if params.tile_dir is None:
+            self._tile_dir = tempfile.mkdtemp()
+        else:
+            self._tile_dir = params.tile_dir
+        print(f"Tiles kept in {self._tile_dir}")
         self._log_dir = tempfile.mkdtemp()
         print(f"Tile errors logged per-process in {self._log_dir}")
 
@@ -226,6 +235,16 @@ class GeoPolygonizer:
         tiler_parameters: TilerParameters,
     ) -> None:
         try:
+            tile_path = os.path.join(
+                self._tile_dir,
+                "tile-"
+                f"{tile_parameters.start_x}-{tile_parameters.start_y}"
+                f"_{self._tile_size}-{self._tile_size}.shp",
+            )
+            if os.path.exists(tile_path):
+                # file already created
+                return
+
             buffer = self._min_blob_size - 1
 
             bx0 = max(tile_parameters.start_x-buffer, 0)
@@ -263,11 +282,7 @@ class GeoPolygonizer:
             )
             gdf.crs = self._crs
 
-            gdf.to_file(os.path.join(
-                self._work_dir,
-                "tile-"
-                f"{tile_parameters.start_x}-{tile_parameters.start_y}.shp",
-            ))
+            gdf.to_file(tile_path)
         except Exception as e:
             pid = os.getpid()
             message = f"[{pid}] Exception at " \
@@ -281,7 +296,10 @@ class GeoPolygonizer:
         all_gdfs = []
 
         for filepath in tqdm(
-            glob.glob(os.path.join(self._work_dir, "*.shp")),
+            glob.glob(os.path.join(
+                self._tile_dir,
+                f"*_{self._tile_size}-{self._tile_size}.shp"
+            )),
             desc="Stitching tiles",
         ):
             gdf = gpd.read_file(filepath)
@@ -309,5 +327,3 @@ class GeoPolygonizer:
         )
         gdf = rz.process()
         gdf.to_file(self._output_file)
-
-        shutil.rmtree(self._work_dir)

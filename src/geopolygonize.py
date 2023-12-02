@@ -61,6 +61,15 @@ from .utils.clean_exit import kill_self
     help="Tile size in pixels",
 )
 @click.option(
+    '--tile-dir',
+    default=None,
+    help="The directory to create tiles in. "
+         "If a tile already exists, it will not be recreated. "
+         "If this parameter is `None`, "
+         "the directory will be a temporary directory that is reported."
+
+)
+@click.option(
     '--workers',
     default=0,  # standard for use all cpus
     type=int,
@@ -75,8 +84,9 @@ def cli(
     simplification_pixel_window,
     smoothing_iterations,
     label_name,
-    workers,
     tile_size,
+    tile_dir,
+    workers,
 ):
     try:
         params = GeoPolygonizerParams(
@@ -87,8 +97,9 @@ def cli(
             pixel_size=pixel_size,
             simplification_pixel_window=simplification_pixel_window,
             smoothing_iterations=smoothing_iterations,
-            workers=workers,
             tile_size=tile_size,
+            tile_dir=tile_dir,
+            workers=workers,
         )
         GeoPolygonizer(params).geopolygonize()
     except Exception as e:
