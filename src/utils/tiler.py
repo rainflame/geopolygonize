@@ -11,6 +11,7 @@ from .clean_exit import CleanExit, kill_children, set_clean_exit
 
 @dataclass
 class TilerParameters:
+    step: str
     endx: int
     endy: int
     startx: int = 0
@@ -85,7 +86,7 @@ class Tiler:
             for _ in tqdm(
                 pool.imap_unordered(self._process_tile_wrapper, all_args),
                 total=len(all_args),
-                desc="Processing tiles"
+                desc=f"[{tp.step}] Processing tiles"
             ):
                 pass
             pool.close()
