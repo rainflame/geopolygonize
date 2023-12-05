@@ -16,7 +16,7 @@ import rasterio
 from rasterio.crs import CRS
 from rasterio.features import shapes
 from shapely.affinity import translate
-from shapely.geometry import shape, LineString, Polygon
+from shapely.geometry import shape, LineString, Point, Polygon
 import warnings
 
 from .blobifier.blobifier import Blobifier
@@ -160,6 +160,7 @@ class GeoPolygonizer:
 
         # to be generated
         self._cleaned: np.ndarray | None = None
+        self._polygonized: gpd.GeoDataFrame | None = None
 
     def _check_is_positive(
         self,
@@ -250,25 +251,25 @@ class GeoPolygonizer:
                 return
 
             buffer = self._min_blob_size - 1
-            bx0 = max(tile_parameters.start_x-buffer, 0)
-            by0 = max(tile_parameters.start_y-buffer, 0)
-            bx1 = min(
+            bx0 = int(max(tile_parameters.start_x-buffer, 0))
+            by0 = int(max(tile_parameters.start_y-buffer, 0))
+            bx1 = int(min(
                 tile_parameters.start_x+tile_parameters.width+buffer,
                 tiler_parameters.endx
-            )
-            by1 = min(
+            ))
+            by1 = int(min(
                 tile_parameters.start_y+tile_parameters.height+buffer,
                 tiler_parameters.endy
-            )
+            ))
             buffered_tile_raster = data[bx0:bx1, by0:by1]
 
             blobifier = Blobifier(buffered_tile_raster, self._min_blob_size)
             cleaned = blobifier.blobify()
 
-            rel_start_x = tile_parameters.start_x - bx0
-            rel_start_y = tile_parameters.start_y - by0
-            rel_end_x = min(rel_start_x + tile_parameters.width, bx1)
-            rel_end_y = min(rel_start_y + tile_parameters.height, by1)
+            rel_start_x = int(tile_parameters.start_x - bx0)
+            rel_start_y = int(tile_parameters.start_y - by0)
+            rel_end_x = int(min(rel_start_x + tile_parameters.width, bx1))
+            rel_end_y = int(min(rel_start_y + tile_parameters.height, by1))
             if rel_end_x - rel_start_x <= 0 \
                     or rel_end_y - rel_start_y <= 0:
                 return
@@ -305,6 +306,73 @@ class GeoPolygonizer:
                 raster[start_x:end_x, start_y:end_y] = tile
 
             np.save(file_path, raster)
+        except Exception as e:
+            self._handle_exception(e, step, None)
+
+    def _polygonize_tile(
+        self,
+        tile_parameters: TileParameters,
+        tiler_parameters: TilerParameters,
+    ) -> None:
+        step = "polygonize"
+        data = self._cleaned
+        assert data is not None
+
+        try:
+            tile_path = self._get_path(step, tile_parameters, "shp")
+            if os.path.exists(tile_path):
+                return
+
+            x0 = int(tile_parameters.start_x)
+            x1 = int(min(
+                tile_parameters.start_x + tile_parameters.width,
+                tiler_parameters.endx
+            ))
+            y0 = int(tile_parameters.start_y)
+            y1 = int(min(
+                tile_parameters.start_y + tile_parameters.height,
+                tiler_parameters.endy
+            ))
+            tile = data[x0:x1, y0:y1]
+
+            shapes_gen = shapes(tile, transform=self._transform)
+            polygons_and_labels = list(zip(*shapes_gen))
+            polygons: List[Polygon] = [
+                shape(s) for s in polygons_and_labels[0]
+            ]
+            labels: List[Any] = [v for v in polygons_and_labels[1]]
+
+            gdf = gpd.GeoDataFrame(geometry=polygons)
+            gdf[self._label_name] = labels
+            # in physical space, x and y are reversed
+            shift_x = tile_parameters.start_y * self._pixel_size
+            shift_y = -(tile_parameters.start_x * self._pixel_size)
+            gdf['geometry'] = gdf['geometry'].apply(
+                lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
+            )
+            gdf.crs = self._crs
+            gdf.to_file(tile_path)
+        except Exception as e:
+            self._handle_exception(e, step, tile_parameters)
+
+    def _polygonize_stitch(self) -> None:
+        step = "polygonize"
+        try:
+            file_path = self._get_path(step, None, "shp")
+            if os.path.exists(file_path):
+                return
+
+            all_gdfs = []
+            for filepath in tqdm(
+                glob.glob(self._get_tile_glob(step, "shp")),
+                desc=f"[{step}] Stitching shapefiles",
+            ):
+                gdf = gpd.read_file(filepath)
+                all_gdfs.append(gdf)
+
+            output_gdf = pd.concat(all_gdfs)
+            output_gdf = unify_by_label(output_gdf, self._label_name)
+            output_gdf.to_file(file_path)
         except Exception as e:
             self._handle_exception(e, step, None)
 
@@ -347,7 +415,7 @@ class GeoPolygonizer:
         tiler_parameters: TilerParameters,
     ) -> None:
         step = "vectorize"
-        data = self._cleaned
+        data = self._polygonized
         assert data is not None
 
         try:
@@ -356,17 +424,37 @@ class GeoPolygonizer:
                 return
 
             x0 = tile_parameters.start_x
-            x1 = tile_parameters.start_x + tile_parameters.width
+            x1 = min(
+                tile_parameters.start_x + tile_parameters.width,
+                tiler_parameters.endx
+            )
             y0 = tile_parameters.start_y
-            y1 = tile_parameters.start_y + tile_parameters.height
-            tile = data[x0:x1, y0:y1]
+            y1 = min(
+                tile_parameters.start_y + tile_parameters.height,
+                tiler_parameters.endy
+            )
+            mask = Polygon([
+                Point(x0, y0),
+                Point(x0, y1),
+                Point(x1, y1),
+                Point(x1, y0),
+                Point(x0, y0),
+            ])
+            tile = data.clip(mask, keep_geom_type=True)
 
-            shapes_gen = shapes(tile, transform=self._transform)
-            polygons_and_labels = list(zip(*shapes_gen))
-            polygons: List[Polygon] = [
-                shape(s) for s in polygons_and_labels[0]
-            ]
-            labels: List[Any] = [v for v in polygons_and_labels[1]]
+            raw_geometries = tile.geometry.to_list()
+            raw_labels = tile[self._label_name].to_list()
+            polygons: List[Polygon] = []
+            labels: List[str] = []
+            for geometry, label in list(zip(raw_geometries, raw_labels)):
+                ps: List[Polygon] = []
+                if geometry.geom_type == "Polygon":
+                    ps.append(geometry)
+                elif geometry.geom_type == "MultiPolygon":
+                    ps.extend(list(geometry.geoms))
+                polygons.extend(ps)
+                labels.extend([label] * len(ps))
+            assert len(polygons) == len(labels)
 
             segmenter = Segmenter(
                 polygons=polygons,
@@ -379,13 +467,6 @@ class GeoPolygonizer:
 
             gdf = gpd.GeoDataFrame(geometry=modified_polygons)
             gdf[self._label_name] = modified_labels
-
-            # in physical space, x and y are reversed
-            shift_x = tile_parameters.start_y * self._pixel_size
-            shift_y = -(tile_parameters.start_x * self._pixel_size)
-            gdf['geometry'] = gdf['geometry'].apply(
-                lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
-            )
             gdf.crs = self._crs
             gdf.to_file(tile_path)
         except Exception as e:
@@ -397,8 +478,8 @@ class GeoPolygonizer:
             file_path = self._get_path(step, None, "shp")
             if os.path.exists(file_path):
                 return
-            all_gdfs = []
 
+            all_gdfs = []
             for filepath in tqdm(
                 glob.glob(self._get_tile_glob(step, "shp")),
                 desc=f"[{step}] Stitching shapefiles",
@@ -447,14 +528,39 @@ class GeoPolygonizer:
         clean_file = self._get_path(step, None, "npy")
         self._cleaned = np.load(clean_file)
 
-        # TODO: Do the polygonization step here!
-
-        step = "vectorize"
+        step = "polygonize"
         tiler_parameters = TilerParameters(
             step=step,
             endx=self._endx,
             endy=self._endy,
             tile_size=self._tile_size,
+            num_processes=self._workers,
+        )
+        polygonize_tiler = Tiler(
+            tiler_parameters=tiler_parameters,
+            process_tile=self._polygonize_tile,
+            stitch_tiles=self._polygonize_stitch,
+        )
+        polygonize_tiler.process()
+        polygonize_file = self._get_path(step, None, "shp")
+        gdf = gpd.read_file(polygonize_file, encoding="utf-8")
+        self._polygonized = gdf
+
+        assert self._polygonized is not None
+        bounds = self._polygonized.geometry.bounds
+        minx_bound = bounds['minx'].min()
+        maxx_bound = bounds['maxx'].max()
+        miny_bound = bounds['miny'].min()
+        maxy_bound = bounds['maxy'].max()
+
+        step = "vectorize"
+        tiler_parameters = TilerParameters(
+            step=step,
+            startx=minx_bound,
+            starty=miny_bound,
+            endx=maxx_bound,
+            endy=maxy_bound,
+            tile_size=self._tile_size * self._pixel_size,
             num_processes=self._workers,
         )
         vectorize_tiler = Tiler(
