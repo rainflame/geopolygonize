@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from itertools import count, takewhile
 import multiprocessing as mp
 import os
 from typing import Any, Callable, List, Tuple
@@ -11,20 +12,21 @@ from .clean_exit import CleanExit, kill_children, set_clean_exit
 
 @dataclass
 class TilerParameters:
-    endx: int
-    endy: int
-    startx: int = 0
-    starty: int = 0
-    tile_size: int = 100
+    step: str
+    endx: float
+    endy: float
+    startx: float = 0
+    starty: float = 0
+    tile_size: float = 100
     num_processes: int = 1
 
 
 @dataclass
 class TileParameters:
-    start_x: int
-    start_y: int
-    width: int
-    height: int
+    start_x: float
+    start_y: float
+    width: float
+    height: float
 
 
 class Tiler:
@@ -42,11 +44,14 @@ class Tiler:
         self.stitch_tiles = stitch_tiles
 
     def _generate_tiles(self) -> List[TileParameters]:
+        def frange(start, stop, step):
+            return takewhile(lambda x: x < stop, count(start, step))
+
         tp = self.tiler_parameters
         all_tile_parameters = [
             TileParameters(x, y, tp.tile_size, tp.tile_size)
-            for x in range(tp.startx, tp.endx, tp.tile_size)
-            for y in range(tp.starty, tp.endy, tp.tile_size)
+            for x in frange(tp.startx, tp.endx, tp.tile_size)
+            for y in frange(tp.starty, tp.endy, tp.tile_size)
         ]
         return all_tile_parameters
 
@@ -85,7 +90,7 @@ class Tiler:
             for _ in tqdm(
                 pool.imap_unordered(self._process_tile_wrapper, all_args),
                 total=len(all_args),
-                desc="Processing tiles"
+                desc=f"[{tp.step}] Processing tiles"
             ):
                 pass
             pool.close()

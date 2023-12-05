@@ -13,6 +13,9 @@ This is useful if you want to simplify or smooth the polygons and maintain
 their cohesion. Your function will need to work over disjoint "segments"
 of the polygon boundaries.
 
+The function must respect the invariant that the start and end points of
+each boundary-segment remain fixed after the operation.
+
 ## How to use
 
 The following shows a scenario where you have a TIF file of geospatial data

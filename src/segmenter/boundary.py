@@ -179,15 +179,13 @@ class Boundary(object):
         assert self._segment_map is not None and self.segments is not None
 
         if len(self.segments) == 1:
-            if (start, end) in self._segment_map:
-                assert start == end
-                idx = self._segment_map[(start, end)]
-                assert idx == 0
+            if line.equals(self.line):
+                idx = 0
                 orientation = Orientation.FORWARD
             else:
                 raise Exception(
                     "Could not find segment idx "
-                    "for given start and end points."
+                    "for given closed line."
                 )
         elif len(self.segments) == 2:
             first_idx = self._segment_map[(start, end)]
