@@ -20,6 +20,10 @@ class Segmenter:
         labels: List[str],
         pin_border: bool,
     ) -> None:
+        for p in polygons:
+            assert p.geom_type == "Polygon", \
+                "Input polygon is not of geom_type `Polygon`."
+
         self.polygons = polygons
         self.labels = labels
         self.pin_border = pin_border
@@ -59,6 +63,8 @@ class Segmenter:
 
     def _check_boundary(self, polygons: List[Polygon]) -> None:
         union = unary_union(polygons)
+        assert union.geom_type == "Polygon", \
+            "Union of modified polygons is not polygon."
         union = clean_polygon(union)
         modified_border = union.exterior
         assert modified_border.equals(self.border)
@@ -96,6 +102,7 @@ class Segmenter:
 
     def _border_build(self) -> None:
         union = unary_union(self.polygons)
+        assert union.geom_type == "Polygon", "Border is not polygon."
         self.border: LineString = clean_polygon(union).exterior
 
     def _area_build(self) -> None:
