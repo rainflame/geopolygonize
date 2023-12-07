@@ -3,7 +3,6 @@ import glob
 import multiprocessing
 import os
 import re
-import shutil
 import tempfile
 from tqdm import tqdm
 from typing import Any, Callable, Dict, List, Tuple
@@ -147,8 +146,8 @@ class GeoPolygonizer:
                     )
                 self._pixel_size = pixel_size
 
-            self._endx: int = self._original.shape[0]
-            self._endy: int = self._original.shape[1]
+            self._width: int = self._original.shape[0]
+            self._height: int = self._original.shape[1]
 
         if params.tile_dir is None:
             self._work_dir = tempfile.mkdtemp()
@@ -157,10 +156,6 @@ class GeoPolygonizer:
         print(f"Working directory: {self._work_dir}")
         self._log_dir = tempfile.mkdtemp()
         print(f"Logs directory: {self._log_dir}")
-
-        # to be generated
-        self._cleaned: np.ndarray | None = None
-        self._polygonized: gpd.GeoDataFrame | None = None
 
     def _check_is_positive(
         self,
@@ -211,129 +206,205 @@ class GeoPolygonizer:
                 self._work_dir,
                 f"{step}-tile"
                 f"_{tile_parameters.start_x}-{tile_parameters.start_y}"
-                f"_{self._tile_size}-{self._tile_size}.{file_extension}",
+                f"_{tile_parameters.width}-{tile_parameters.height}"
+                f".{file_extension}",
             )
         return tile_path
 
     def _get_tile_glob(self, step: str, file_extension: str) -> str:
         glob_pattern = os.path.join(
             self._work_dir,
-            f"{step}-tile_*_{self._tile_size}-{self._tile_size}"
+            f"{step}-tile_*_*"
             f".{file_extension}",
         )
         return glob_pattern
 
-    def _get_start_from_file(
+    def _get_tile_params_from_file(
         self,
         step: str,
         filepath: str,
-    ) -> Tuple[int, int] | None:
+    ) -> TileParameters | None:
         pattern = f"{step}-tile_(?P<start_x>[0-9]*)-(?P<start_y>[0-9]*)" \
-                  f"_{self._tile_size}-{self._tile_size}"
+                  f"_(?P<width>[0-9]*)-(?P<height>[0-9]*)"
         match = re.search(pattern, filepath)
         if match is None:
             return None
-        start_x = match.group('start_x')
-        start_y = match.group('start_y')
-        return int(start_x), int(start_y)
+
+        start_x = int(match.group('start_x'))
+        start_y = int(match.group('start_y'))
+        width = int(match.group('width'))
+        height = int(match.group('height'))
+        return TileParameters(
+            start_x=start_x,
+            start_y=start_y,
+            width=width,
+            height=height,
+        )
+
+    # works for rasters (saved as npy)
+    def _get_region(
+        self,
+        step: str,
+        region_parameters: TileParameters,
+    ) -> np.ndarray:
+        data = np.zeros(
+            (region_parameters.width, region_parameters.height)
+        )
+        region_start_x = region_parameters.start_x
+        region_start_y = region_parameters.start_y
+        region_end_x = region_parameters.start_x + region_parameters.width
+        region_end_y = region_parameters.start_y + region_parameters.height
+
+        for start_x in range(0, self._width, self._tile_size):
+            if start_x + self._tile_size < region_start_x:
+                continue
+            if start_x >= region_end_x:
+                break
+
+            for start_y in range(0, self._height, self._tile_size):
+                if start_y + self._tile_size < region_start_y:
+                    continue
+                if start_y >= region_end_y:
+                    break
+
+                tile_parameters = TileParameters(
+                    start_x=start_x,
+                    start_y=start_y,
+                    width=self._tile_size,
+                    height=self._tile_size,
+                )
+                tile_path = self._get_path(step, tile_parameters, "npy")
+                tile = np.load(tile_path)
+                tile_width = tile.shape[0]
+                tile_height = tile.shape[1]
+                end_x = start_x + tile_width
+                end_y = start_y + tile_height
+
+                if start_x < region_start_x:
+                    rel_tile_start_x = region_start_x - start_x
+                    rel_data_start_x = 0
+                else:
+                    rel_tile_start_x = 0
+                    rel_data_start_x = start_x - region_start_x
+                if end_x < region_end_x:
+                    rel_tile_end_x = end_x - start_x
+                    rel_data_end_x = end_x - region_start_x
+                else:
+                    rel_tile_end_x = region_end_x - start_x
+                    rel_data_end_x = region_end_x - region_start_x
+                    pass
+                if start_y < region_start_y:
+                    rel_tile_start_y = region_start_y - start_y
+                    rel_data_start_y = 0
+                else:
+                    rel_tile_start_y = 0
+                    rel_data_start_y = start_y - region_start_y
+                if end_y < region_end_y:
+                    rel_tile_end_y = end_y - start_y
+                    rel_data_end_y = end_y - region_start_y
+                else:
+                    rel_tile_end_y = region_end_y - start_y
+                    rel_data_end_y = region_end_y - region_start_y
+
+                data[
+                    rel_data_start_x:rel_data_end_x,
+                    rel_data_start_y:rel_data_end_y
+                ] = tile[
+                    rel_tile_start_x:rel_tile_end_x,
+                    rel_tile_start_y:rel_tile_end_y,
+                ]
+
+        return data
+
+    def _input_tile(self, tile_parameters: TileParameters) -> None:
+        step = "input"
+        try:
+            tile_path = self._get_path(step, tile_parameters, "npy")
+            if os.path.exists(tile_path):
+                return
+
+            bx0 = max(tile_parameters.start_x, 0)
+            by0 = max(tile_parameters.start_y, 0)
+            bx1 = min(
+                tile_parameters.start_x+tile_parameters.width,
+                self._width
+            )
+            by1 = min(
+                tile_parameters.start_y+tile_parameters.height,
+                self._height
+            )
+
+            tile = self._original[bx0:bx1, by0:by1]
+            np.save(tile_path, tile)
+        except Exception as e:
+            self._handle_exception(e, step, tile_parameters)
 
     def _clean_tile(
         self,
         tile_parameters: TileParameters,
-        tiler_parameters: TilerParameters,
     ) -> None:
         step = "clean"
-        data = self._original
-
+        prev_step = "input"
         try:
             tile_path = self._get_path(step, tile_parameters, "npy")
             if os.path.exists(tile_path):
                 return
 
             buffer = self._min_blob_size - 1
-            bx0 = int(max(tile_parameters.start_x-buffer, 0))
-            by0 = int(max(tile_parameters.start_y-buffer, 0))
-            bx1 = int(min(
+            bx0 = max(tile_parameters.start_x-buffer, 0)
+            by0 = max(tile_parameters.start_y-buffer, 0)
+            bx1 = min(
                 tile_parameters.start_x+tile_parameters.width+buffer,
-                tiler_parameters.endx
-            ))
-            by1 = int(min(
+                self._width
+            )
+            by1 = min(
                 tile_parameters.start_y+tile_parameters.height+buffer,
-                tiler_parameters.endy
-            ))
-            buffered_tile_raster = data[bx0:bx1, by0:by1]
+                self._height
+            )
+            region_parameters = TileParameters(
+                start_x=bx0,
+                start_y=by0,
+                width=bx1-bx0,
+                height=by1-by0,
+            )
+            if region_parameters.width <= 0 or region_parameters.height <= 0:
+                return
 
-            blobifier = Blobifier(buffered_tile_raster, self._min_blob_size)
+            buffered_region = self._get_region(prev_step, region_parameters)
+            blobifier = Blobifier(buffered_region, self._min_blob_size)
             cleaned = blobifier.blobify()
 
-            rel_start_x = int(tile_parameters.start_x - bx0)
-            rel_start_y = int(tile_parameters.start_y - by0)
-            rel_end_x = int(min(rel_start_x + tile_parameters.width, bx1))
-            rel_end_y = int(min(rel_start_y + tile_parameters.height, by1))
-            if rel_end_x - rel_start_x <= 0 \
-                    or rel_end_y - rel_start_y <= 0:
-                return
-            tile_raster = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
-
-            np.save(tile_path, tile_raster)
+            rel_start_x = tile_parameters.start_x - region_parameters.start_x
+            rel_start_y = tile_parameters.start_y - region_parameters.start_y
+            rel_end_x = min(
+                rel_start_x + tile_parameters.width,
+                region_parameters.start_x + region_parameters.width
+            )
+            rel_end_y = min(
+                rel_start_y + tile_parameters.height,
+                region_parameters.start_y + region_parameters.height
+            )
+            tile = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
+            np.save(tile_path, tile)
         except Exception as e:
             self._handle_exception(e, step, tile_parameters)
-
-    def _clean_stitch(self) -> None:
-        step = "clean"
-        try:
-            file_path = self._get_path(step, None, "npy")
-            if os.path.exists(file_path):
-                return
-
-            raster = np.empty_like(self._original)
-            for filepath in tqdm(
-                glob.glob(self._get_tile_glob(step, "npy")),
-                desc=f"[{step}] Stitching rasters",
-            ):
-                starts = self._get_start_from_file(step, filepath)
-                assert starts is not None, \
-                    f"Could not get start values from {filepath}."
-                start_x, start_y = starts
-
-                tile = np.load(filepath)
-
-                end_x = start_x+tile.shape[0]
-                end_y = start_y+tile.shape[1]
-                assert end_x <= self._endx and end_y <= self._endy, \
-                    "Tile from cleaning step is not within bounds " \
-                    "of input raster size."
-                raster[start_x:end_x, start_y:end_y] = tile
-
-            np.save(file_path, raster)
-        except Exception as e:
-            self._handle_exception(e, step, None)
 
     def _polygonize_tile(
         self,
         tile_parameters: TileParameters,
-        tiler_parameters: TilerParameters,
     ) -> None:
         step = "polygonize"
-        data = self._cleaned
-        assert data is not None
-
+        prev_step = "clean"
         try:
             tile_path = self._get_path(step, tile_parameters, "shp")
             if os.path.exists(tile_path):
                 return
 
-            x0 = int(tile_parameters.start_x)
-            x1 = int(min(
-                tile_parameters.start_x + tile_parameters.width,
-                tiler_parameters.endx
-            ))
-            y0 = int(tile_parameters.start_y)
-            y1 = int(min(
-                tile_parameters.start_y + tile_parameters.height,
-                tiler_parameters.endy
-            ))
-            tile = data[x0:x1, y0:y1]
+            prev_tile_path = self._get_path(prev_step, tile_parameters, "npy")
+            if not os.path.exists(prev_tile_path):
+                return
+            tile = np.load(prev_tile_path)
+            tile = tile.astype('float32')
 
             shapes_gen = shapes(tile, transform=self._transform)
             polygons_and_labels = list(zip(*shapes_gen))
@@ -354,27 +425,6 @@ class GeoPolygonizer:
             gdf.to_file(tile_path)
         except Exception as e:
             self._handle_exception(e, step, tile_parameters)
-
-    def _polygonize_stitch(self) -> None:
-        step = "polygonize"
-        try:
-            file_path = self._get_path(step, None, "shp")
-            if os.path.exists(file_path):
-                return
-
-            all_gdfs = []
-            for filepath in tqdm(
-                glob.glob(self._get_tile_glob(step, "shp")),
-                desc=f"[{step}] Stitching shapefiles",
-            ):
-                gdf = gpd.read_file(filepath)
-                all_gdfs.append(gdf)
-
-            output_gdf = pd.concat(all_gdfs)
-            output_gdf = unify_by_label(output_gdf, self._label_name)
-            output_gdf.to_file(file_path)
-        except Exception as e:
-            self._handle_exception(e, step, None)
 
     def _generate_smoothing_func(self) -> Callable[[LineString], LineString]:
         def smooth(segment: LineString) -> LineString:
@@ -412,49 +462,20 @@ class GeoPolygonizer:
     def _vectorize_tile(
         self,
         tile_parameters: TileParameters,
-        tiler_parameters: TilerParameters,
     ) -> None:
         step = "vectorize"
-        data = self._polygonized
-        assert data is not None
-
+        prev_step = "polygonize"
         try:
             tile_path = self._get_path(step, tile_parameters, "shp")
             if os.path.exists(tile_path):
                 return
 
-            x0 = tile_parameters.start_x
-            x1 = min(
-                tile_parameters.start_x + tile_parameters.width,
-                tiler_parameters.endx
-            )
-            y0 = tile_parameters.start_y
-            y1 = min(
-                tile_parameters.start_y + tile_parameters.height,
-                tiler_parameters.endy
-            )
-            mask = Polygon([
-                Point(x0, y0),
-                Point(x0, y1),
-                Point(x1, y1),
-                Point(x1, y0),
-                Point(x0, y0),
-            ])
-            tile = data.clip(mask, keep_geom_type=True)
-
-            raw_geometries = tile.geometry.to_list()
-            raw_labels = tile[self._label_name].to_list()
-            polygons: List[Polygon] = []
-            labels: List[str] = []
-            for geometry, label in list(zip(raw_geometries, raw_labels)):
-                ps: List[Polygon] = []
-                if geometry.geom_type == "Polygon":
-                    ps.append(geometry)
-                elif geometry.geom_type == "MultiPolygon":
-                    ps.extend(list(geometry.geoms))
-                polygons.extend(ps)
-                labels.extend([label] * len(ps))
-            assert len(polygons) == len(labels)
+            prev_tile_path = self._get_path(prev_step, tile_parameters, "shp")
+            if not os.path.exists(prev_tile_path):
+                return
+            gdf = gpd.read_file(prev_tile_path)
+            polygons = gdf.geometry.to_list()
+            labels = gdf[self._label_name].to_list()
 
             segmenter = Segmenter(
                 polygons=polygons,
@@ -472,37 +493,23 @@ class GeoPolygonizer:
         except Exception as e:
             self._handle_exception(e, step, tile_parameters)
 
-    def _vectorize_stitch(self) -> gpd.GeoDataFrame:
-        step = "vectorize"
+    def _stitch(self) -> gpd.GeoDataFrame:
+        step = "stitch"
+        prev_step = "vectorize"
         try:
-            file_path = self._get_path(step, None, "shp")
-            if os.path.exists(file_path):
-                return
-
             all_gdfs = []
             for filepath in tqdm(
-                glob.glob(self._get_tile_glob(step, "shp")),
-                desc=f"[{step}] Stitching shapefiles",
+                glob.glob(self._get_tile_glob(prev_step, "shp")),
+                desc="Stitching shapefiles",
             ):
                 gdf = gpd.read_file(filepath)
                 all_gdfs.append(gdf)
 
             output_gdf = pd.concat(all_gdfs)
             output_gdf = unify_by_label(output_gdf, self._label_name)
-            output_gdf.to_file(file_path)
+            output_gdf.to_file(self._output_file)
         except Exception as e:
             self._handle_exception(e, step, None)
-
-    def _copy_shapefile(self, src: str, dst: str) -> None:
-        if src[-4:] == ".shp":
-            src = src[:-4]
-        if dst[-4:] == ".shp":
-            dst = dst[:-4]
-        file_extensions = ["shp", "shx", "cpg", "dbf"]
-        for fe in file_extensions:
-            src_path = f"{src}.{fe}"
-            dst_path = f"{dst}.{fe}"
-            shutil.copy2(src_path, dst_path)
 
     def geopolygonize(self) -> None:
         """
@@ -511,64 +518,39 @@ class GeoPolygonizer:
         then vectorize the result to get the final output.
         """
 
-        step = "clean"
         tiler_parameters = TilerParameters(
-            step=step,
-            endx=self._endx,
-            endy=self._endy,
+            endx=self._width,
+            endy=self._height,
             tile_size=self._tile_size,
             num_processes=self._workers,
         )
+
+        input_tiler = Tiler(
+            tiler_parameters=tiler_parameters,
+            step="input",
+            process_tile=self._input_tile,
+        )
+        input_tiler.process()
+
         clean_tiler = Tiler(
             tiler_parameters=tiler_parameters,
+            step="clean",
             process_tile=self._clean_tile,
-            stitch_tiles=self._clean_stitch,
         )
         clean_tiler.process()
-        clean_file = self._get_path(step, None, "npy")
-        self._cleaned = np.load(clean_file)
 
-        step = "polygonize"
-        tiler_parameters = TilerParameters(
-            step=step,
-            endx=self._endx,
-            endy=self._endy,
-            tile_size=self._tile_size,
-            num_processes=self._workers,
-        )
         polygonize_tiler = Tiler(
             tiler_parameters=tiler_parameters,
+            step="polygonize",
             process_tile=self._polygonize_tile,
-            stitch_tiles=self._polygonize_stitch,
         )
         polygonize_tiler.process()
-        polygonize_file = self._get_path(step, None, "shp")
-        gdf = gpd.read_file(polygonize_file, encoding="utf-8")
-        self._polygonized = gdf
 
-        assert self._polygonized is not None
-        bounds = self._polygonized.geometry.bounds
-        minx_bound = bounds['minx'].min()
-        maxx_bound = bounds['maxx'].max()
-        miny_bound = bounds['miny'].min()
-        maxy_bound = bounds['maxy'].max()
-
-        step = "vectorize"
-        tiler_parameters = TilerParameters(
-            step=step,
-            startx=minx_bound,
-            starty=miny_bound,
-            endx=maxx_bound,
-            endy=maxy_bound,
-            tile_size=self._tile_size * self._pixel_size,
-            num_processes=self._workers,
-        )
         vectorize_tiler = Tiler(
             tiler_parameters=tiler_parameters,
+            step="vectorize",
             process_tile=self._vectorize_tile,
-            stitch_tiles=self._vectorize_stitch,
         )
         vectorize_tiler.process()
-        vectorize_file = self._get_path(step, None, "shp")
 
-        self._copy_shapefile(vectorize_file, self._output_file)
+        self._stitch()
