@@ -19,7 +19,7 @@ each boundary-segment remain fixed after the operation.
 ## How to use
 
 The following shows a scenario where you have a TIF file of geospatial data
-representing elevation, and you want to output a nice-looking shapefile
+representing elevation, and you want to output a nice-looking gpkg file
 that shows tiers of elevation by every 1000 meters.
 
 Read the TIF file.
@@ -42,7 +42,7 @@ elevation_tiers = [v for _s, v in shapes_gen]
 ```
 
 Use the `Segmenter` to simplify and smoothen the boundaries of these tiers 
-so that in the final shapefile, they do not appear pixelated.
+so that in the final gpkg file, they do not appear pixelated.
 ```
 segmenter = Segmenter(polygons)
 segmenter.run_per_segment(simplification_function)
@@ -50,11 +50,11 @@ segmenter.run_per_segment(smoothen_function)
 modified_polygons = segmenter.get_result()
 ```
 
-Output the result into a shapefile.
+Output the result into a gpkg file.
 ```
 gdf = gpd.GeoDataFrame(geometry=modified_polygons)
 gdf['elevation_tier'] = elevation_tiers
-gdf.to_file(elevation_shp_filepath)
+gdf.to_file(elevation_gpkg_filepath)
 ```
 
 ## Method

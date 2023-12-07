@@ -7,7 +7,7 @@ from .utils.clean_exit import kill_self
 @click.command(
     name="Geopolygonize",
     help="Convert a geographic raster input "
-         "into an attractive shapefile output."
+         "into an attractive gpkg file output."
 )
 @click.option(
     '--input-file',
@@ -18,7 +18,7 @@ from .utils.clean_exit import kill_self
 @click.option(
     '--output-file',
     type=click.Path(file_okay=True, dir_okay=False),
-    help="Output shapefile path",
+    help="Output gpkg file path",
     required=True,
 )
 @click.option(

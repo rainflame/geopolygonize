@@ -13,23 +13,23 @@ from visualization import get_show_config, show_polygons, show_raster
     help='TIF file to view',
 )
 @click.option(
-    '--shapefile',
+    '--gpkgfile',
     type=str,
-    help='Shapefile to view',
+    help='Geopackage to view',
 )
 @click.option(
     '--label-name',
     default="label",
     help='Name of the attribute storing the original pixel values',
 )
-def cli(tiffile, shapefile, label_name):
+def cli(tiffile, gpkgfile, label_name):
     if tiffile is not None:
         with rasterio.open(tiffile) as src:
             data = src.read(1)
             cmap, min_value, max_value = get_show_config(data)
             show_raster(data, cmap, min_value, max_value)
-    elif shapefile is not None:
-        gdf = gpd.read_file(shapefile)
+    elif gpkgfile is not None:
+        gdf = gpd.read_file(gpkgfile)
 
         polygons = []
         labels = []

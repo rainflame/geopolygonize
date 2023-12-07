@@ -38,7 +38,7 @@ class GeoPolygonizerParams:
     input_file: str
     """Input TIF file path"""
     output_file: str
-    """Output shapefile path"""
+    """Output gpkg file path"""
     label_name: str = 'label'
     """The name of the attribute each pixel value represents."""
     min_blob_size: int = 5
@@ -71,7 +71,7 @@ class GeoPolygonizerParams:
 class GeoPolygonizer:
     """
     `GeoPolygonizer` will convert a geographic raster input
-    into an attractive shapefile output.
+    into an attractive gpkg file output.
     """
 
     def __init__(
@@ -413,7 +413,7 @@ class GeoPolygonizer:
         step = "polygonize"
         prev_step = "clean"
         try:
-            tile_path = self._get_path(step, tile_parameters, "shp")
+            tile_path = self._get_path(step, tile_parameters, "gpkg")
             if os.path.exists(tile_path):
                 return
 
@@ -483,11 +483,11 @@ class GeoPolygonizer:
         step = "vectorize"
         prev_step = "polygonize"
         try:
-            tile_path = self._get_path(step, tile_parameters, "shp")
+            tile_path = self._get_path(step, tile_parameters, "gpkg")
             if os.path.exists(tile_path):
                 return
 
-            prev_tile_path = self._get_path(prev_step, tile_parameters, "shp")
+            prev_tile_path = self._get_path(prev_step, tile_parameters, "gpkg")
             if not os.path.exists(prev_tile_path):
                 return
             gdf = gpd.read_file(prev_tile_path)
@@ -516,8 +516,8 @@ class GeoPolygonizer:
         try:
             all_gdfs = []
             for filepath in tqdm(
-                glob.glob(self._get_tile_glob(prev_step, "shp")),
-                desc="Stitching shapefiles",
+                glob.glob(self._get_tile_glob(prev_step, "gpkg")),
+                desc="Stitching gpkg files",
             ):
                 gdf = gpd.read_file(filepath)
                 all_gdfs.append(gdf)

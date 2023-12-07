@@ -1,6 +1,6 @@
 # Geopolygonize
 
-Convert geographic rasters into simplified polygons. Given an input raster file, this tool produces a shapefile representation of the raster that simplifies out pixelation. It also maintains shapes' relations to one another such that the output is guaranteed to have no gaps.
+Convert geographic rasters into simplified polygons. Given an input raster file, this tool produces a gpkg file representation of the raster that simplifies out pixelation. It also maintains shapes' relations to one another such that the output is guaranteed to have no gaps.
 
 ## Algorithm
 
