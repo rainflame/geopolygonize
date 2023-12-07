@@ -26,18 +26,20 @@ Refer to the [docs](https://rainflame.github.io/geopolygonize).
 
 ## Development
 
-Run the setup script:
+Install the dependencies:
+
 ```
-./setup.sh
+pip install -r requirements.txt
 ```
 
-Run the CLI:
+Then, run the CLI:
 
 ```
 python -m src.geopolygonize --input-file="data/input.tif" --output-file="data/output.shp"
 ```
 
 Test against some existing input:
+
 ```
 ./tests/run_e2e_test.sh <input>
 ```
