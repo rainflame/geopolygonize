@@ -12,8 +12,10 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 import rasterio
+from rasterio import DatasetReader
 from rasterio.crs import CRS
 from rasterio.features import shapes
+from rasterio.windows import Window
 from shapely.affinity import translate
 from shapely.geometry import shape, LineString, Point, Polygon
 import warnings
@@ -130,10 +132,10 @@ class GeoPolygonizer:
             if params.workers == 0 else params.workers
 
         with rasterio.open(params.input_file) as src:
-            self._original: np.ndarray = src.read(1)
             self._meta: Dict[str, Any] = src.meta
             self._crs: CRS = self._meta['crs']
             self._transform: Affine = src.transform
+            self._set_dims(src)
 
             if params.pixel_size == 0:
                 # assume pixel is square
@@ -146,9 +148,6 @@ class GeoPolygonizer:
                     )
                 self._pixel_size = pixel_size
 
-            self._width: int = self._original.shape[0]
-            self._height: int = self._original.shape[1]
-
         if params.tile_dir is None:
             self._work_dir = tempfile.mkdtemp()
         else:
@@ -156,6 +155,21 @@ class GeoPolygonizer:
         print(f"Working directory: {self._work_dir}")
         self._log_dir = tempfile.mkdtemp()
         print(f"Logs directory: {self._log_dir}")
+
+    def _set_dims(self, src: DatasetReader) -> None:
+        width = 0
+        height = 0
+        for _i, window in src.block_windows(1):
+            # Window treats x as cols and y as rows,
+            # whereas we treat x as rows and y as cols.
+            x_end = window.row_off + window.height
+            y_end = window.col_off + window.width
+            if x_end > width:
+                width = x_end
+            if y_end > height:
+                height = y_end
+        self._width: int = width
+        self._height: int = height
 
     def _check_is_positive(
         self,
@@ -334,8 +348,11 @@ class GeoPolygonizer:
                 self._height
             )
 
-            tile = self._original[bx0:bx1, by0:by1]
-            np.save(tile_path, tile)
+            with rasterio.open(self._input_file) as src:
+                # Window treats x as cols and y as rows,
+                # whereas we treat x as rows and y as cols.
+                tile = src.read(1, window=Window(by0, bx0, by1-by0, bx1-bx0))
+                np.save(tile_path, tile)
         except Exception as e:
             self._handle_exception(e, step, tile_parameters)
 
