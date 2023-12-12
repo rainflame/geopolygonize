@@ -8,6 +8,8 @@ from tqdm import tqdm
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 from affine import Affine
+import dask.dataframe as dd
+import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -22,12 +24,14 @@ import warnings
 
 from .blobifier.blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
+from .utils.io import to_file
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import Tiler, TileParameters, TilerParameters
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 _EPSILON = 1.0e-10
+_CHUNKSIZE = int(1e4)
 
 
 @dataclass
@@ -513,17 +517,30 @@ class GeoPolygonizer:
         step = "stitch"
         prev_step = "vectorize"
         try:
-            all_gdfs = []
+            union_dgdf = dgpd.from_geopandas(
+                gpd.GeoDataFrame(),
+                chunksize=_CHUNKSIZE
+            )
             for filepath in tqdm(
                 glob.glob(self._get_tile_glob(prev_step, "gpkg")),
                 desc="Stitching gpkg files",
             ):
                 gdf = gpd.read_file(filepath)
-                all_gdfs.append(gdf)
+                dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+                union_dgdf = dd.concat([union_dgdf, dgdf])
 
-            union_gdf = pd.concat(all_gdfs)
-            union_gdf = union_gdf.dissolve(self._label_name)
-            union_gdf.to_file(self._output_file)
+            num_rows = len(union_dgdf.index)
+            partitions = num_rows // _CHUNKSIZE + 1
+            print(
+                f"# ROWS: {num_rows}"
+                f"\tCHUNKSIZE: {_CHUNKSIZE}"
+                f"\t# PARTITIONS: {partitions}"
+            )
+            union_dgdf = union_dgdf.dissolve(
+                self._label_name,
+                split_out=partitions
+            )
+            to_file(union_dgdf, self._output_file)
         except Exception as e:
             self._handle_exception(e, step, None)
 
