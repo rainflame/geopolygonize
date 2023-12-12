@@ -24,7 +24,6 @@ from .blobifier.blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import Tiler, TileParameters, TilerParameters
-from .utils.unifier import unify_by_label
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
@@ -522,9 +521,9 @@ class GeoPolygonizer:
                 gdf = gpd.read_file(filepath)
                 all_gdfs.append(gdf)
 
-            output_gdf = pd.concat(all_gdfs)
-            output_gdf = unify_by_label(output_gdf, self._label_name)
-            output_gdf.to_file(self._output_file)
+            union_gdf = pd.concat(all_gdfs)
+            union_gdf = union_gdf.dissolve(self._label_name)
+            union_gdf.to_file(self._output_file)
         except Exception as e:
             self._handle_exception(e, step, None)
 
