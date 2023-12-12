@@ -8,6 +8,8 @@ cloudpickle==3.0.0
 contourpy==1.2.0
 cycler==0.12.1
 dask==2023.12.0
+dask-geopandas==0.3.1
+distributed==2023.12.0
 fiona==1.9.5
 fonttools==4.44.3
 fsspec==2023.12.2
@@ -17,12 +19,14 @@ Jinja2==3.1.2
 kiwisolver==1.4.5
 locket==1.0.0
 MarkupSafe==2.1.3
+msgpack==1.0.7
 numpy==1.26.2
 packaging==23.2
 pandas==2.1.3
 partd==1.4.1
 pdoc==14.1.0
 Pillow==10.1.0
+psutil==5.9.6
 Pygments==2.17.2
 pyparsing==3.1.1
 pyproj==3.6.1
@@ -35,7 +39,9 @@ shapely==2.0.2
 six==1.16.0
 snuggs==1.4.7
 sortedcontainers==2.4.0
+tblib==3.0.0
 toolz==0.12.0
 tqdm==4.66.1
+zict==3.0.0
 zipp==3.17.0
 tzdata==2023.3
