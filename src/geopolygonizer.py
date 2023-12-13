@@ -5,7 +5,7 @@ import os
 import re
 import tempfile
 from tqdm import tqdm
-from typing import Any, Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Tuple, Union
 
 from affine import Affine
 import geopandas as gpd
@@ -54,7 +54,7 @@ class GeoPolygonizerParams:
     """The number of iterations of smoothing to run on the output polygons."""
     tile_size: int = 100
     """Tile size in pixels"""
-    tile_dir: str | None = None
+    tile_dir: Union[str, None] = None
     """
     The directory to create tiles in.
     If a tile already exists, it will not be recreated.
@@ -191,7 +191,7 @@ class GeoPolygonizer:
         self,
         e: Exception,
         step: str,
-        tile_parameters: TileParameters | None,
+        tile_parameters: Union[TileParameters, None],
     ) -> None:
         pid = os.getpid()
         if tile_parameters is None:
@@ -207,7 +207,7 @@ class GeoPolygonizer:
     def _get_path(
         self,
         step: str,
-        tile_parameters: TileParameters | None,
+        tile_parameters: Union[TileParameters, None],
         file_extension: str,
     ) -> str:
         if tile_parameters is None:
@@ -237,7 +237,7 @@ class GeoPolygonizer:
         self,
         step: str,
         filepath: str,
-    ) -> TileParameters | None:
+    ) -> Union[TileParameters, None]:
         pattern = f"{step}-tile_(?P<start_x>[0-9]*)-(?P<start_y>[0-9]*)" \
                   f"_(?P<width>[0-9]*)-(?P<height>[0-9]*)"
         match = re.search(pattern, filepath)

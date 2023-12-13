@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Union
 
 from shapely.geometry import LineString, Polygon
 
@@ -7,7 +7,7 @@ class Area:
     def __init__(self, polygon: Polygon) -> None:
         self.polygon = polygon
 
-        self.exterior: LineString | None = None
+        self.exterior: Union[LineString, None] = None
         self.interiors: List[LineString] = []
 
         self.modified_polygon: Polygon = None

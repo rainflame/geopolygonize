@@ -1,4 +1,4 @@
-from typing import Callable, List
+from typing import Callable, List, Union
 
 from shapely.geometry import LineString, Point
 
@@ -58,7 +58,7 @@ class BoundaryCutter:
 
     def _get_segments_between_cutpoints(self) -> List[LineString]:
         segments: List[LineString] = []
-        segment_coords: None | List[Point] = None
+        segment_coords: Union[List[Point], None] = None
         cutpoint_idx: int = 0
 
         for positioned_coord in self._positioned_coords:

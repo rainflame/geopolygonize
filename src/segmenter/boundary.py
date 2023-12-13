@@ -1,5 +1,5 @@
 from sortedcontainers import SortedDict
-from typing import Dict, ItemsView, List, Tuple, TypeAlias
+from typing import Dict, ItemsView, List, NewType, Tuple, Union
 
 from shapely.geometry import LineString, Point
 from rtree import index
@@ -7,7 +7,7 @@ from rtree import index
 from .orientation import Orientation
 from .segment import Segment
 
-NeighborIdx: TypeAlias = int
+NeighborIdx = NewType("NeighborIdx", int)
 
 
 class Boundary(object):
@@ -26,10 +26,10 @@ class Boundary(object):
         self._setup_sort_cache()
         self._setup_temporary_variables()
 
-        self._segment_map: Dict[Tuple[int, int], int] | None = None
+        self._segment_map: Union[Dict[Tuple[int, int], int], None] = None
         self.segments: List[Segment] = []
 
-        self.modified_line: LineString | None = None
+        self.modified_line: Union[LineString, None] = None
 
     def _setup_sort_cache(self) -> None:
         self._sort_cache: Dict[Point, float] = {}
