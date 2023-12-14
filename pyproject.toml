@@ -7,7 +7,7 @@ name = "geopolygonize"
 dynamic = ["version"]
 description = 'Convert geographic rasters into simplified polygons'
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = "MIT"
 keywords = []
 authors = [
