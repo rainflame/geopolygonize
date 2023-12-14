@@ -46,3 +46,6 @@ geopolygonize = "src.geopolygonize:cli"
 
 [tool.hatch.version]
 path = "src/__about__.py"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
