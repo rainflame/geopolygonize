@@ -529,6 +529,19 @@ class GeoPolygonizer:
                 dgdf = dgpd.from_geopandas(gdf, npartitions=1)
                 union_dgdf = dd.concat([union_dgdf, dgdf])
 
+            # Dask recommends using split_out = 1
+            # to use sort=True, which allows for determinism,
+            # and because split_out > 1  may not work
+            # with newer versions of Dask.
+            # However, this will require all the data
+            # to fit on the memory, which is not always possible.
+            # Unfortunately, the lack of determinism
+            # means that sometimes the dissolve outputs
+            # a suboptimal join of the polygons.
+            # This should be remedied with a rerun on the
+            # same tile directory.
+            #
+            # https://dask-geopandas.readthedocs.io/en/stable/guide/dissolve.html
             num_rows = len(union_dgdf.index)
             partitions = num_rows // _CHUNKSIZE + 1
             print(
@@ -539,6 +552,7 @@ class GeoPolygonizer:
             union_dgdf = union_dgdf.dissolve(
                 self._label_name,
                 split_out=partitions
+                #sort=True,
             )
             to_file(union_dgdf, self._output_file)
         except Exception as e:
