@@ -8,6 +8,8 @@ from tqdm import tqdm
 from typing import Any, Callable, Dict, List, Tuple, Union
 
 from affine import Affine
+import dask.dataframe as dd
+import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import pandas as pd
@@ -22,13 +24,14 @@ import warnings
 
 from .blobifier.blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
+from .utils.io import to_file
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import Tiler, TileParameters, TilerParameters
-from .utils.unifier import unify_by_label
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 _EPSILON = 1.0e-10
+_CHUNKSIZE = int(1e4)
 
 
 @dataclass
@@ -130,6 +133,7 @@ class GeoPolygonizer:
         )
         self._workers = multiprocessing.cpu_count() \
             if params.workers == 0 else params.workers
+        print(f"Using {self._workers} workers.")
 
         with rasterio.open(params.input_file) as src:
             self._meta: Dict[str, Any] = src.meta
@@ -514,17 +518,44 @@ class GeoPolygonizer:
         step = "stitch"
         prev_step = "vectorize"
         try:
-            all_gdfs = []
+            union_dgdf = dgpd.from_geopandas(
+                gpd.GeoDataFrame(),
+                chunksize=_CHUNKSIZE
+            )
             for filepath in tqdm(
                 glob.glob(self._get_tile_glob(prev_step, "gpkg")),
                 desc="Stitching gpkg files",
             ):
                 gdf = gpd.read_file(filepath)
-                all_gdfs.append(gdf)
+                dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+                union_dgdf = dd.concat([union_dgdf, dgdf])
 
-            output_gdf = pd.concat(all_gdfs)
-            output_gdf = unify_by_label(output_gdf, self._label_name)
-            output_gdf.to_file(self._output_file)
+            # Dask recommends using split_out = 1
+            # to use sort=True, which allows for determinism,
+            # and because split_out > 1  may not work
+            # with newer versions of Dask.
+            # However, this will require all the data
+            # to fit on the memory, which is not always possible.
+            # Unfortunately, the lack of determinism
+            # means that sometimes the dissolve outputs
+            # a suboptimal join of the polygons.
+            # This should be remedied with a rerun on the
+            # same tile directory.
+            #
+            # https://dask-geopandas.readthedocs.io/en/stable/guide/dissolve.html
+            num_rows = len(union_dgdf.index)
+            partitions = num_rows // _CHUNKSIZE + 1
+            print(
+                f"# ROWS: {num_rows}"
+                f"\tCHUNKSIZE: {_CHUNKSIZE}"
+                f"\t# PARTITIONS: {partitions}"
+            )
+            union_dgdf = union_dgdf.dissolve(
+                self._label_name,
+                split_out=partitions
+                #sort=True,
+            )
+            to_file(union_dgdf, self._output_file)
         except Exception as e:
             self._handle_exception(e, step, None)
 
