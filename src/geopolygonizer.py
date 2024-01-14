@@ -133,6 +133,7 @@ class GeoPolygonizer:
         )
         self._workers = multiprocessing.cpu_count() \
             if params.workers == 0 else params.workers
+        print(f"Using {self._workers} workers.")
 
         with rasterio.open(params.input_file) as src:
             self._meta: Dict[str, Any] = src.meta
