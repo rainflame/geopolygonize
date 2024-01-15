@@ -56,7 +56,7 @@ from .utils.clean_exit import kill_self
 )
 @click.option(
     '--tile-size',
-    default=200,
+    default=1000,
     type=int,
     help="Tile size in pixels",
 )

@@ -56,7 +56,7 @@ class GeoPolygonizerParams:
     """The amount of simplification applied relative to the pixel size."""
     smoothing_iterations: int = 0
     """The number of iterations of smoothing to run on the output polygons."""
-    tile_size: int = 100
+    tile_size: int = 1000
     """Tile size in pixels"""
     tile_dir: Union[str, None] = None
     """
