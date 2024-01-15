@@ -3,26 +3,46 @@ import click
 import geopandas as gpd
 import rasterio
 
-from visualization import get_show_config, show_polygons, show_raster
+from visualization import (
+    get_show_config,
+    save_polygons,
+    show_polygons,
+    show_raster
+)
 
 
-@click.command()
+@click.command('view the geometry of a file')
 @click.option(
+    '-t',
     '--tiffile',
     type=str,
     help='TIF file to view',
 )
 @click.option(
+    '-g',
     '--gpkgfile',
     type=str,
     help='Geopackage to view',
 )
 @click.option(
+    '-l',
     '--label-name',
     default="label",
     help='Name of the attribute storing the original pixel values',
 )
-def cli(tiffile, gpkgfile, label_name):
+@click.option(
+    '-o',
+    '--output-image-path',
+    default=None,
+    help='IMG path to save image to. Only applies to gpkg files.',
+)
+@click.option(
+    '--dpi',
+    default=324,
+    help='DPI of the image to be saved.',
+)
+
+def cli(tiffile, gpkgfile, label_name, output_image_path, dpi):
     if tiffile is not None:
         with rasterio.open(tiffile) as src:
             data = src.read(1)
@@ -42,7 +62,10 @@ def cli(tiffile, gpkgfile, label_name):
                 polygons.append(shape)
                 labels.append(label)
 
-        show_polygons(polygons, labels)
+        if output_image_path is None:
+            show_polygons(polygons, labels=labels)
+        else:
+            save_polygons(output_image_path, polygons, dpi=dpi, labels=labels)
 
 
 if __name__ == '__main__':

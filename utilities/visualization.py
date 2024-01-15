@@ -48,8 +48,8 @@ def show_raster(data, cmap, min_value, max_value):
     plt.show()
 
 
-def show_polygons(polygons, labels=None, color_map=None):
-    fig, ax = plt.subplots()
+def show_polygons(polygons, show=True, labels=None, color_map=None):
+    fig, ax = plt.subplots(figsize=(10, 10))
 
     if labels is None:
         labels = list(range(len(polygons)))
@@ -74,32 +74,13 @@ def show_polygons(polygons, labels=None, color_map=None):
         collection.set_color(color)
         collection.set_edgecolor("black")
         ax.add_collection(collection)
-
+ 
     plt.axis('equal')
-
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.legend()
-
-    plt.show()
+    if show:
+        plt.show()
+    return fig
 
 
-def show_lines(lines, labels=None, color_map=None):
-    _fig, ax = plt.subplots()
-
-    if labels is None:
-        labels = list(range(len(lines)))
-    if color_map is None:
-        color_map = generate_color_map(labels)
-
-    for i, l in enumerate(lines):
-        x, y = l.xy
-        ax.plot(x, y, color=color_map[labels[i]])
-
-    plt.axis('equal')
-
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.legend()
-
-    plt.show()
+def save_polygons(image_path, polygons, dpi=324, **args):
+    fig = show_polygons(polygons, show=False, **args)
+    fig.savefig(image_path, dpi=dpi)
