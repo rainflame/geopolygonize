@@ -70,6 +70,11 @@ from .utils.clean_exit import kill_self
 
 )
 @click.option(
+    '--cleanup',
+    default=True,
+    help="Whether or not to remove the `tile_dir` after completion."
+)
+@click.option(
     '--workers',
     default=0,  # standard for use all cpus
     type=int,
@@ -86,6 +91,7 @@ def cli(
     label_name,
     tile_size,
     tile_dir,
+    cleanup,
     workers,
 ):
     try:
@@ -99,6 +105,7 @@ def cli(
             smoothing_iterations=smoothing_iterations,
             tile_size=tile_size,
             tile_dir=tile_dir,
+            cleanup=cleanup,
             workers=workers,
         )
         GeoPolygonizer(params).geopolygonize()

@@ -3,6 +3,7 @@ import glob
 import multiprocessing
 import os
 import re
+import shutil
 import tempfile
 from tqdm import tqdm
 from typing import Any, Callable, Dict, List, Tuple, Union
@@ -63,6 +64,10 @@ class GeoPolygonizerParams:
     If a tile already exists, it will not be recreated.
     If this parameter is `None`,
     the directory will be a temporary directory that is reported.
+    """
+    cleanup: bool = True
+    """
+    Whether or not to remove the `tile_dir` after completion.
     """
     workers: int = 1
     """
@@ -159,6 +164,10 @@ class GeoPolygonizer:
         print(f"Working directory: {self._work_dir}")
         self._log_dir = tempfile.mkdtemp()
         print(f"Logs directory: {self._log_dir}")
+
+    def _cleanup(self):
+        print(f"Removing working directory: {self._work_dir}")
+        shutil.rmtree(self._work_dir)
 
     def _set_dims(self, src: DatasetReader) -> None:
         width = 0
@@ -602,3 +611,5 @@ class GeoPolygonizer:
         vectorize_tiler.process()
 
         self._stitch()
+
+        self._cleanup()
