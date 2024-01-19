@@ -67,7 +67,8 @@ class GeoPolygonizerParams:
     """
     cleanup: bool = True
     """
-    Whether or not to remove the `tile_dir` after completion.
+    By default, the `tile_dir` is removed after completion.
+    Set this option to False to prevent the removal.
     """
     workers: int = 1
     """
@@ -156,6 +157,8 @@ class GeoPolygonizer:
                         "Please input it manually using `--pixel-size`."
                     )
                 self._pixel_size = pixel_size
+
+        self.cleanup = params.cleanup
 
         if params.tile_dir is None:
             self._work_dir = tempfile.mkdtemp()
@@ -612,4 +615,5 @@ class GeoPolygonizer:
 
         self._stitch()
 
-        self._cleanup()
+        if self.cleanup:
+            self._cleanup()

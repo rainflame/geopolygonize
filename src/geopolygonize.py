@@ -1,4 +1,5 @@
 import click
+from typing import Union
 
 from .geopolygonizer import GeoPolygonizer, GeoPolygonizerParams
 from .utils.clean_exit import kill_self
@@ -63,6 +64,7 @@ from .utils.clean_exit import kill_self
 @click.option(
     '--tile-dir',
     default=None,
+    type=Union[click.Path(file_okay=False, dir_okay=True), None],
     help="The directory to create tiles in. "
          "If a tile already exists, it will not be recreated. "
          "If this parameter is `None`, "
@@ -70,9 +72,10 @@ from .utils.clean_exit import kill_self
 
 )
 @click.option(
-    '--cleanup',
-    default=True,
-    help="Whether or not to remove the `tile_dir` after completion."
+    '--no-cleanup',
+    is_flag=True,
+    help="By default, the `tile_dir` is removed after completion. "
+         "Set this option to prevent the removal."
 )
 @click.option(
     '--workers',
@@ -91,7 +94,7 @@ def cli(
     label_name,
     tile_size,
     tile_dir,
-    cleanup,
+    no_cleanup,
     workers,
 ):
     try:
@@ -105,7 +108,7 @@ def cli(
             smoothing_iterations=smoothing_iterations,
             tile_size=tile_size,
             tile_dir=tile_dir,
-            cleanup=cleanup,
+            cleanup=not no_cleanup,
             workers=workers,
         )
         GeoPolygonizer(params).geopolygonize()
