@@ -11,10 +11,10 @@ import geopandas as gpd
 
 curr_file_dir = os.path.dirname(__file__)
 
-utils_path = os.path.abspath(
+root_path = os.path.abspath(
     os.path.join(curr_file_dir, "..")
 )
-sys.path.append(utils_path)
+sys.path.append(root_path)
 from src.utils.io import to_file
 
 _CHUNKSIZE = int(1e4)
