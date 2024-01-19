@@ -21,7 +21,7 @@ from shapely.affinity import translate
 from shapely.geometry import shape, LineString, Polygon
 import warnings
 
-from .blobifier.blobifier import Blobifier
+from .blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
 from .utils import checkers
 from .utils.io import to_file
