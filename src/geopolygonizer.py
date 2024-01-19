@@ -25,6 +25,7 @@ import warnings
 
 from .blobifier.blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
+from .utils import checkers
 from .utils.io import to_file
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import Tiler, TileParameters, TilerParameters
@@ -91,49 +92,45 @@ class GeoPolygonizer:
         Create a `GeoPolygonizer` and validate inputs.
         """
 
-        inputs = glob.glob(params.input_file)
-        if len(inputs) < 1:
-            raise ValueError(f'Input file does not exist: {params.input_file}')
-        self._input_file = inputs[0]
-
-        output_dir = os.path.dirname(params.output_file)
-        if not os.path.exists(output_dir):
-            raise ValueError(f'Output directory does not exist: {output_dir}')
+        self._input_file = checkers.check_and_retrieve_input_path(
+            params.input_file
+        )
+        checkers.check_output_path(params.output_file)
         self._output_file = params.output_file
 
         self._label_name = params.label_name
 
-        self._check_is_non_negative(
+        checkers.check_is_non_negative(
             "--min-blob-size",
             params.min_blob_size
         )
         self._min_blob_size = params.min_blob_size
 
-        self._check_is_non_negative(
+        checkers.check_is_non_negative(
             "--pixel-size",
             params.pixel_size
         )
         self._pixel_size = params.pixel_size
 
-        self._check_is_non_negative(
+        checkers.check_is_non_negative(
             "--simplification-pixel-window",
             params.simplification_pixel_window
         )
         self._simplification_pixel_window = params.simplification_pixel_window
 
-        self._check_is_non_negative(
+        checkers.check_is_non_negative(
             "--smoothing-iterations",
             params.smoothing_iterations
         )
         self._smoothing_iterations = params.smoothing_iterations
 
-        self._check_is_positive(
+        checkers.check_is_positive(
             "--tile-size",
             params.tile_size
         )
         self._tile_size = params.tile_size
 
-        self._check_is_non_negative(
+        checkers.check_is_non_negative(
             "--workers",
             params.workers
         )
@@ -186,22 +183,6 @@ class GeoPolygonizer:
                 height = y_end
         self._width: int = width
         self._height: int = height
-
-    def _check_is_positive(
-        self,
-        field_name: str,
-        field_value: float,  # encompasses int
-    ) -> None:
-        if field_value <= 0:
-            raise ValueError(f'Value for `{field_name}` must be positive.')
-
-    def _check_is_non_negative(
-        self,
-        field_name: str,
-        field_value: float,  # encompasses int
-    ) -> None:
-        if field_value < 0:
-            raise ValueError(f'Value for `{field_name}` must be non-negative.')
 
     def _handle_exception(
         self,
