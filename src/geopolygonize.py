@@ -1,5 +1,4 @@
 import click
-from typing import Union
 
 from .geopolygonizer import GeoPolygonizer, GeoPolygonizerParams
 from .utils.clean_exit import kill_self
@@ -62,27 +61,9 @@ from .utils.clean_exit import kill_self
     help="Tile size in pixels",
 )
 @click.option(
-    '--tile-dir',
-    default=None,
-    type=Union[click.Path(file_okay=False, dir_okay=True), None],
-    help="The directory to create tiles in. "
-         "If a tile already exists, it will not be recreated. "
-         "If this parameter is `None`, "
-         "the directory will be a temporary directory that is reported."
-
-)
-@click.option(
-    '--no-cleanup',
+    '--debug',
     is_flag=True,
-    help="By default, the `tile_dir` is removed after completion. "
-         "Set this option to prevent the removal."
-)
-@click.option(
-    '--workers',
-    default=0,  # standard for use all cpus
-    type=int,
-    help="Number of processes to spawn to process tiles in parallel. "
-         "Input 0 to use all available CPUs."
+    help="enable debug mode"
 )
 def cli(
     input_file,
@@ -93,9 +74,7 @@ def cli(
     smoothing_iterations,
     label_name,
     tile_size,
-    tile_dir,
-    no_cleanup,
-    workers,
+    debug,
 ):
     try:
         params = GeoPolygonizerParams(
@@ -107,9 +86,7 @@ def cli(
             simplification_pixel_window=simplification_pixel_window,
             smoothing_iterations=smoothing_iterations,
             tile_size=tile_size,
-            tile_dir=tile_dir,
-            cleanup=not no_cleanup,
-            workers=workers,
+            debug=debug,
         )
         GeoPolygonizer(params).geopolygonize()
     except Exception as e:
