@@ -1,11 +1,6 @@
 from dataclasses import dataclass
-import glob
-import multiprocessing
-import os
-import shutil
-import tempfile
 from tqdm import tqdm
-from typing import Any, Callable, Dict, List, Union
+from typing import Any, Callable, Dict, Iterator, List
 
 from affine import Affine
 import dask.dataframe as dd
@@ -29,8 +24,8 @@ from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import (
     Pipeline,
     PipelineParameters,
+    TileData,
     StepParameters,
-    StepHelper,
     TileParameters,
 )
 
@@ -63,23 +58,8 @@ class GeoPolygonizerParams:
     """The number of iterations of smoothing to run on the output polygons."""
     tile_size: int = 1000
     """Tile size in pixels"""
-    tile_dir: Union[str, None] = None
-    """
-    The directory to create tiles in.
-    If a tile already exists, it will not be recreated.
-    If this parameter is `None`,
-    the directory will be a temporary directory that is reported.
-    """
-    cleanup: bool = True
-    """
-    By default, the `tile_dir` is removed after completion.
-    Set this option to False to prevent the removal.
-    """
-    workers: int = 1
-    """
-    Number of processes to spawn to process tiles in parallel.
-    Input 0 to use all available CPUs.
-    """
+    debug: bool = False
+    """enable debug mode"""
 
 
 class GeoPolygonizer:
@@ -134,14 +114,6 @@ class GeoPolygonizer:
         )
         self._tile_size = params.tile_size
 
-        checkers.check_is_non_negative(
-            "--workers",
-            params.workers
-        )
-        self._workers = multiprocessing.cpu_count() \
-            if params.workers == 0 else params.workers
-        print(f"Using {self._workers} workers.")
-
         with rasterio.open(params.input_file) as src:
             self._meta: Dict[str, Any] = src.meta
             self._crs: CRS = self._meta['crs']
@@ -159,19 +131,7 @@ class GeoPolygonizer:
                     )
                 self._pixel_size = pixel_size
 
-        self.cleanup = params.cleanup
-
-        if params.tile_dir is None:
-            self._work_dir = tempfile.mkdtemp()
-        else:
-            self._work_dir = params.tile_dir
-        print(f"Working directory: {self._work_dir}")
-        self._log_dir = tempfile.mkdtemp()
-        print(f"Logs directory: {self._log_dir}")
-
-    def _cleanup(self):
-        print(f"Removing working directory: {self._work_dir}")
-        shutil.rmtree(self._work_dir)
+        self._debug = params.debug
 
     def _set_dims(self, src: DatasetReader) -> None:
         width = 0
@@ -191,12 +151,10 @@ class GeoPolygonizer:
     def _input_tile(
         self,
         tile_parameters: TileParameters,
-        step_helper: StepHelper,
+        _get_prev_tile: Callable[[TileParameters], TileData],
+        _get_prev_region: Callable[[TileParameters], TileData],
+        save_curr_tile: Callable[[TileParameters, TileData], None],
     ) -> None:
-        curr_path = step_helper.get_curr_path(tile_parameters)
-        if os.path.exists(curr_path):
-            return
-
         bx0 = max(tile_parameters.start_x, 0)
         by0 = max(tile_parameters.start_y, 0)
         bx1 = min(
@@ -207,22 +165,19 @@ class GeoPolygonizer:
             tile_parameters.start_y+tile_parameters.height,
             self._height
         )
-
         with rasterio.open(self._input_file) as src:
             # Window treats x as cols and y as rows,
             # whereas we treat x as rows and y as cols.
             tile = src.read(1, window=Window(by0, bx0, by1-by0, bx1-bx0))
-            np.save(curr_path, tile)
+            save_curr_tile(tile_parameters, tile)
 
     def _clean_tile(
         self,
         tile_parameters: TileParameters,
-        step_helper: StepHelper,
+        _get_prev_tile: Callable[[TileParameters], TileData],
+        get_prev_region: Callable[[TileParameters], TileData],
+        save_curr_tile: Callable[[TileParameters, TileData], None],
     ) -> None:
-        curr_path = step_helper.get_curr_path(tile_parameters)
-        if os.path.exists(curr_path):
-            return
-
         buffer = self._min_blob_size - 1
         bx0 = max(tile_parameters.start_x-buffer, 0)
         by0 = max(tile_parameters.start_y-buffer, 0)
@@ -242,8 +197,9 @@ class GeoPolygonizer:
         )
         if region_parameters.width <= 0 or region_parameters.height <= 0:
             return
-
-        buffered_region = step_helper.get_prev_region(region_parameters)
+        buffered_region = get_prev_region(region_parameters)
+        if buffered_region is None:
+            return
 
         blobifier = Blobifier(buffered_region, self._min_blob_size)
         cleaned = blobifier.blobify()
@@ -259,21 +215,18 @@ class GeoPolygonizer:
             region_parameters.start_y + region_parameters.height
         )
         tile = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
-        np.save(curr_path, tile)
+        save_curr_tile(tile_parameters, tile)
 
     def _polygonize_tile(
         self,
         tile_parameters: TileParameters,
-        step_helper: StepHelper,
+        get_prev_tile: Callable[[TileParameters], TileData],
+        _get_prev_region: Callable[[TileParameters], TileData],
+        save_curr_tile: Callable[[TileParameters, TileData], None],
     ) -> None:
-        curr_path = step_helper.get_curr_path(tile_parameters)
-        if os.path.exists(curr_path):
+        prev_tile = get_prev_tile(tile_parameters)
+        if prev_tile is None:
             return
-
-        prev_path = step_helper.get_prev_path(tile_parameters)
-        if not os.path.exists(prev_path):
-            return
-        prev_tile = np.load(prev_path)
         prev_tile = prev_tile.astype('float32')
 
         shapes_gen = shapes(prev_tile, transform=self._transform)
@@ -292,7 +245,7 @@ class GeoPolygonizer:
             lambda geom: translate(geom, xoff=shift_x, yoff=shift_y)
         )
         gdf.crs = self._crs
-        gdf.to_file(curr_path)
+        save_curr_tile(tile_parameters, gdf)
 
     def _generate_smoothing_func(self) -> Callable[[LineString], LineString]:
         def smooth(segment: LineString) -> LineString:
@@ -330,17 +283,12 @@ class GeoPolygonizer:
     def _vectorize_tile(
         self,
         tile_parameters: TileParameters,
-        step_helper: StepHelper,
+        get_prev_tile: Callable[[TileParameters], TileData],
+        _get_prev_region: Callable[[TileParameters], TileData],
+        save_curr_tile: Callable[[TileParameters, TileData], None],
     ) -> None:
-        curr_path = step_helper.get_curr_path(tile_parameters)
-        if os.path.exists(curr_path):
-            return
-
-        prev_path = step_helper.get_prev_path(tile_parameters)
-        if not os.path.exists(prev_path):
-            return
-        prev_tile = gpd.read_file(prev_path)
-
+        prev_tile = get_prev_tile(tile_parameters)
+        assert isinstance(prev_tile, gpd.GeoDataFrame)
         polygons = prev_tile.geometry.to_list()
         labels = prev_tile[self._label_name].to_list()
 
@@ -356,22 +304,22 @@ class GeoPolygonizer:
         gdf = gpd.GeoDataFrame(geometry=modified_polygons)
         gdf[self._label_name] = modified_labels
         gdf.crs = self._crs
-        gdf.to_file(curr_path)
+        save_curr_tile(tile_parameters, gdf)
 
     def _stitch(
         self,
-        step_helper: StepHelper,
+        get_prev_tiles: Callable[[], Iterator[TileData]],
     ) -> gpd.GeoDataFrame:
         union_dgdf = dgpd.from_geopandas(
             gpd.GeoDataFrame(),
             chunksize=_CHUNKSIZE
         )
-        for filepath in tqdm(
-            glob.glob(step_helper.get_prev_tile_glob()),
+        for prev_tile in tqdm(
+            get_prev_tiles(),
             desc="Stitching gpkg files",
         ):
-            gdf = gpd.read_file(filepath)
-            dgdf = dgpd.from_geopandas(gdf, npartitions=1)
+            assert isinstance(prev_tile, gpd.GeoDataFrame)
+            dgdf = dgpd.from_geopandas(prev_tile, npartitions=1)
             union_dgdf = dd.concat([union_dgdf, dgdf])
 
         # Dask recommends using split_out = 1
@@ -408,25 +356,33 @@ class GeoPolygonizer:
 
         pipeline = Pipeline(
             all_step_parameters=[
-                StepParameters(
-                    name="input",
-                    function=self._input_tile,
-                    file_extension="npy",
+                (
+                    StepParameters(
+                        name="input",
+                        data_type=np.ndarray,
+                    ),
+                    self._input_tile,
                 ),
-                StepParameters(
-                    name="clean",
-                    function=self._clean_tile,
-                    file_extension="npy",
+                (
+                    StepParameters(
+                        name="clean",
+                        data_type=np.ndarray,
+                    ),
+                    self._clean_tile,
                 ),
-                StepParameters(
-                    name="polygonize",
-                    function=self._polygonize_tile,
-                    file_extension="gpkg",
+                (
+                    StepParameters(
+                        name="polygonize",
+                        data_type=gpd.GeoDataFrame,
+                    ),
+                    self._polygonize_tile,
                 ),
-                StepParameters(
-                    name="vectorize",
-                    function=self._vectorize_tile,
-                    file_extension="gpkg",
+                (
+                    StepParameters(
+                        name="vectorize",
+                        data_type=gpd.GeoDataFrame,
+                    ),
+                    self._vectorize_tile,
                 ),
             ],
             union_function=self._stitch,
@@ -434,12 +390,7 @@ class GeoPolygonizer:
                 endx=self._width,
                 endy=self._height,
                 tile_size=self._tile_size,
-                num_processes=self._workers,
-                work_dir=self._work_dir,
-                log_dir=self._log_dir,
+                debug=self._debug,
             )
         )
         pipeline.run()
-
-        if self.cleanup:
-            self._cleanup()
