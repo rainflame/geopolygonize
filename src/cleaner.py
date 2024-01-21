@@ -8,7 +8,7 @@ import warnings
 
 from .blobifier import Blobifier
 from .utils import checkers
-from .utils.tiler import (
+from .tiler import (
     PipelineParameters,
     TileData,
     StepParameters,

@@ -14,7 +14,7 @@ import warnings
 from .segmenter.segmenter import Segmenter
 from .utils import checkers
 from .utils.smoothing import chaikins_corner_cutting
-from .utils.tiler import (
+from .tiler import (
     PipelineParameters,
     TileData,
     StepParameters,
