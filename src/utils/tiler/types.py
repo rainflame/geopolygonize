@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Iterator, Union
+from typing import Callable, Iterator, Tuple, Union
 
 import numpy as np
 import geopandas as gpd
@@ -40,7 +40,7 @@ StepFunction = Callable[[
 
 
 UnionFunction = Callable[[
-    Callable[[], Iterator[TileData]],  # get_prev_tiles
+    Callable[[], Iterator[Tuple[TileParameters, TileData]]],  # get_prev_tiles
 ], None]
 
 

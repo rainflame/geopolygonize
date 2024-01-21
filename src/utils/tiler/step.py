@@ -102,7 +102,7 @@ class StepHelper:
             region_parameters,
         )
 
-    def get_prev_tiles(self) -> Iterator[TileData]:
+    def get_prev_tiles(self) -> Iterator[Tuple[TileParameters, TileData]]:
         if self.prev_step_parameters is None:
             raise Exception("No previous step")
 

@@ -28,13 +28,6 @@ from .utils.clean_exit import kill_self
     help="The name of the attribute each pixel value represents.",
 )
 @click.option(
-    '--min-blob-size',
-    default=30,
-    type=int,
-    help="The mininum number of pixels a blob can have and not be "
-         "filtered out.",
-)
-@click.option(
     '--pixel-size',
     default=0.0,
     type=float,
@@ -68,7 +61,6 @@ from .utils.clean_exit import kill_self
 def cli(
     input_file,
     output_file,
-    min_blob_size,
     pixel_size,
     simplification_pixel_window,
     smoothing_iterations,
@@ -81,7 +73,6 @@ def cli(
             input_file=input_file,
             output_file=output_file,
             label_name=label_name,
-            min_blob_size=min_blob_size,
             pixel_size=pixel_size,
             simplification_pixel_window=simplification_pixel_window,
             smoothing_iterations=smoothing_iterations,

@@ -1,7 +1,7 @@
 import glob
 import os
 import re
-from typing import Dict, Iterator, Union
+from typing import Dict, Iterator, Tuple, Union
 
 import numpy as np
 import geopandas as gpd
@@ -119,8 +119,8 @@ class TileStore:
     def get_all_tiles(
         self,
         step_parameters: StepParameters,
-    ) -> Iterator[TileData]:
-        yield np.array([])
+    ) -> Iterator[Tuple[TileParameters, TileData]]:
+        yield (TileParameters(0, 0, 0, 0), np.array([]))
 
     def save_tile(
         self,
@@ -179,12 +179,12 @@ class TileMemory(TileStore):
     def get_all_tiles(
         self,
         step_parameters: StepParameters,
-    ) -> Iterator[TileData]:
+    ) -> Iterator[Tuple[TileParameters, TileData]]:
         if step_parameters not in self.all_step_tiles:
             return
         step_map = self.all_step_tiles[step_parameters]
         for tile_parameters, tile in step_map.items():
-            yield tile
+            yield (tile_parameters, tile)
 
     def save_tile(
         self,
@@ -217,11 +217,12 @@ class TileDisk(TileStore):
 
     def _get_tile_params_from_file(
         self,
-        step: str,
+        step_parameters: StepParameters,
         filepath: str,
     ) -> Union[TileParameters, None]:
-        pattern = f"{step}-tile_(?P<start_x>[0-9]*)-(?P<start_y>[0-9]*)" \
-                  f"_(?P<width>[0-9]*)-(?P<height>[0-9]*)"
+        pattern = f"{step_parameters.name}" \
+                  "-tile_(?P<start_x>[0-9]*)-(?P<start_y>[0-9]*)" \
+                  "_(?P<width>[0-9]*)-(?P<height>[0-9]*)"
         match = re.search(pattern, filepath)
         if match is None:
             return None
@@ -300,15 +301,20 @@ class TileDisk(TileStore):
     def get_all_tiles(
         self,
         step_parameters: StepParameters,
-    ) -> Iterator[TileData]:
+    ) -> Iterator[Tuple[TileParameters, TileData]]:
         pattern = os.path.join(
             self.config.disk_config.work_dir,
             f"{step_parameters.name}-tile_*_*"
             f".{self._get_file_extension(step_parameters)}",
         )
         for tile_path in glob.glob(pattern):
+            tile_parameters = self._get_tile_params_from_file(
+                step_parameters,
+                tile_path
+            )
+            assert tile_parameters is not None
             tile = self._load_tile(step_parameters, tile_path)
-            yield tile
+            yield (tile_parameters, tile)
 
     def save_tile(
         self,
