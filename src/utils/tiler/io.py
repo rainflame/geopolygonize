@@ -15,6 +15,7 @@ from .types import (
     TileData,
     TileParameters,
     StepFunction,
+    UnionFunction,
 )
 
 
@@ -71,7 +72,7 @@ def generate_union_ndarray(
     profile: Profile,
     width: int,
     height: int,
-) -> Callable[[Callable[[], Iterator[Tuple[TileParameters, TileData]]]], None]:
+) -> UnionFunction:
     def union_ndarray(
         get_prev_tiles: Callable[
             [],
@@ -97,7 +98,7 @@ def generate_union_ndarray(
 def generate_union_gdf(
     output_path: str,
     label_name: str,
-) -> Callable[[Callable[[], Iterator[Tuple[TileParameters, TileData]]]], None]:
+) -> UnionFunction:
     def union_gdf(
         get_prev_tiles: Callable[[], Iterator[TileData]],
     ) -> None:

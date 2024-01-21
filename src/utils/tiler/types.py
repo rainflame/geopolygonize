@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Callable, Iterator, Tuple, Union
+from typing import Callable, Iterator, List, Tuple, Union
 
 import numpy as np
 import geopandas as gpd
@@ -63,5 +63,10 @@ class StepParameters:
 class PipelineParameters:
     width: int
     height: int
+    steps: List[Tuple[StepParameters, StepFunction]]
+    union_function: UnionFunction
     tile_size: int = 1000
     debug: bool = False
+    # True when all steps only depend on former tile, i.e. only
+    # use get_prev_tile and not get_prev_region.
+    independent: bool = False

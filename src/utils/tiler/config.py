@@ -4,6 +4,8 @@ import multiprocessing
 import tempfile
 from typing import Union
 
+from .types import PipelineParameters
+
 
 class Store(Enum):
     Memory = "Memory"
@@ -21,8 +23,10 @@ class Config:
         self,
         parallelization: bool,
         store: Store,
+        independent: bool = False,
         disk_config: Union[DiskConfig, None] = None,
     ):
+        self.independent = independent
         self.parallelization = parallelization
         num_processes = 1
         if parallelization:
@@ -32,7 +36,7 @@ class Config:
         self.store = store
         match store:
             case Store.Memory:
-                if self.parallelization:
+                if self.parallelization and not independent:
                     # Avoid sharing memory between processes.
                     # Doing this correctly while avoiding copying lots
                     # of data between processes seems rather tricky,
@@ -40,7 +44,9 @@ class Config:
                     # https://docs.python.org/3/library/multiprocessing.html#sharing-state-between-processes
                     raise Exception(
                         "Do not use memory to store intermediate data "
-                        "if using parallelization. Use disk instead. "
+                        "if tiles are not independent and "
+                        "if you are using parallelization. "
+                        "Use disk instead. "
                     )
             case Store.Disk:
                 if disk_config is None:
@@ -57,6 +63,13 @@ class StandardConfig(Config):
         parallelization = False
         store = Store.Memory
         super().__init__(parallelization, store)
+
+
+class IndependentConfig(Config):
+    def __init__(self):
+        parallelization = True
+        store = Store.Memory
+        super().__init__(parallelization, store, independent=True)
 
 
 class LargeConfig(Config):
@@ -80,3 +93,35 @@ class DebugConfig(Config):
             work_dir = tempfile.mkdtemp()
         disk_config = DiskConfig(work_dir=work_dir, keep=True)
         super().__init__(parallelization, store, disk_config=disk_config)
+
+
+MAX_UNITS = 1.0e+8
+
+
+def create_config(pipeline_parameters: PipelineParameters) -> Config:
+    config: Config
+    if pipeline_parameters.debug:
+        config = DebugConfig()
+        print("Using debug configuration")
+    else:
+        # The data cannot be fully stored in memory
+        # so we store it on disk instead.
+        num_units = (pipeline_parameters.width * pipeline_parameters.height) \
+            * len(pipeline_parameters.steps)
+        if num_units > MAX_UNITS:
+            config = LargeConfig()
+            print("Using large configuration")
+        else:
+            if pipeline_parameters.independent:
+                config = IndependentConfig()
+                print("Using tile-independence configuration")
+            else:
+                config = StandardConfig()
+                print("Using standard configuration")
+
+    if config.parallelization:
+        print(f"Using {config.num_processes} processes.")
+    if config.store == Store.Disk:
+        print(f"Working directory: {config.disk_config.work_dir}")
+    print(f"Logs directory: {config.log_dir}")
+    return config

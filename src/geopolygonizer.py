@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List
+from typing import Any, Callable, Dict, Iterator, List, Tuple
 
 from affine import Affine
 import geopandas as gpd
@@ -15,14 +15,15 @@ from .segmenter.segmenter import Segmenter
 from .utils import checkers
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import (
-    Pipeline,
     PipelineParameters,
     TileData,
     StepParameters,
     TileParameters,
+    create_config,
     get_dims,
     generate_input_tile_from_ndarray,
     generate_union_gdf,
+    pipe,
 )
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -210,23 +211,46 @@ class GeoPolygonizer:
         gdf.crs = self._crs
         save_curr_tile(tile_parameters, gdf)
 
+    def _input(
+        self,
+        tile_parameters: TileParameters,
+        get_prev_tile: Callable[[TileParameters], TileData],
+        get_prev_region: Callable[[TileParameters], TileData],
+        save_curr_tile: Callable[[TileParameters, TileData], None],
+    ) -> None:
+        generate_input_tile_from_ndarray(
+            self._input_file,
+            self._width,
+            self._height,
+        )(tile_parameters, get_prev_tile, get_prev_region, save_curr_tile)
+
+    def _union(
+        self,
+        get_prev_tiles: Callable[
+            [],
+            Iterator[Tuple[TileParameters, TileData]]
+        ],
+    ) -> None:
+        return generate_union_gdf(
+            self._output_file,
+            self._label_name,
+        )(get_prev_tiles)
+
     def geopolygonize(self) -> None:
         """
         Geopolygonize input to get output.
         """
 
-        pipeline = Pipeline(
-            all_step_parameters=[
+        pipeline_parameters = PipelineParameters(
+            width=self._width,
+            height=self._height,
+            steps=[
                 (
                     StepParameters(
                         name="input",
                         data_type=np.ndarray,
                     ),
-                    generate_input_tile_from_ndarray(
-                        self._input_file,
-                        self._width,
-                        self._height,
-                    ),
+                    self._input,
                 ),
                 (
                     StepParameters(
@@ -243,15 +267,10 @@ class GeoPolygonizer:
                     self._vectorize_tile,
                 ),
             ],
-            union_function=generate_union_gdf(
-                self._output_file,
-                self._label_name,
-            ),
-            pipeline_parameters=PipelineParameters(
-                width=self._width,
-                height=self._height,
-                tile_size=self._tile_size,
-                debug=self._debug,
-            )
+            union_function=self._union,
+            tile_size=self._tile_size,
+            debug=self._debug,
+            independent=True,
         )
-        pipeline.run()
+        config = create_config(pipeline_parameters)
+        pipe(pipeline_parameters, config)

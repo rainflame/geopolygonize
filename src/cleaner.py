@@ -1,21 +1,22 @@
 from dataclasses import dataclass
-from typing import Callable
+from typing import Callable, Iterator, Tuple
 
 import numpy as np
 import rasterio
+from rasterio.windows import Window
 import warnings
 
 from .blobifier import Blobifier
 from .utils import checkers
 from .utils.tiler import (
-    Pipeline,
     PipelineParameters,
     TileData,
     StepParameters,
     TileParameters,
+    create_config,
     get_dims,
-    generate_input_tile_from_ndarray,
     generate_union_ndarray,
+    pipe,
 )
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
@@ -79,7 +80,7 @@ class Cleaner:
         self,
         tile_parameters: TileParameters,
         _get_prev_tile: Callable[[TileParameters], TileData],
-        get_prev_region: Callable[[TileParameters], TileData],
+        _get_prev_region: Callable[[TileParameters], TileData],
         save_curr_tile: Callable[[TileParameters, TileData], None],
     ) -> None:
         buffer = self._min_blob_size - 1
@@ -101,9 +102,12 @@ class Cleaner:
         )
         if region_parameters.width <= 0 or region_parameters.height <= 0:
             return
-        buffered_region = get_prev_region(region_parameters)
-        if buffered_region is None:
-            return
+
+        with rasterio.open(self._input_file) as src:
+            # Window treats x as cols and y as rows,
+            # whereas we treat x as rows and y as cols.
+            buffered_region = \
+                src.read(1, window=Window(by0, bx0, by1-by0, bx1-bx0))
 
         blobifier = Blobifier(buffered_region, self._min_blob_size)
         cleaned = blobifier.blobify()
@@ -121,24 +125,29 @@ class Cleaner:
         tile = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
         save_curr_tile(tile_parameters, tile)
 
+    def _union(
+        self,
+        get_prev_tiles: Callable[
+            [],
+            Iterator[Tuple[TileParameters, TileData]]
+        ],
+    ) -> None:
+        return generate_union_ndarray(
+            self._output_file,
+            self._profile,
+            self._width,
+            self._height,
+        )(get_prev_tiles)
+
     def clean(self) -> None:
         """
         Clean input to get output.
         """
 
-        pipeline = Pipeline(
-            all_step_parameters=[
-                (
-                    StepParameters(
-                        name="input",
-                        data_type=np.ndarray,
-                    ),
-                    generate_input_tile_from_ndarray(
-                        self._input_file,
-                        self._width,
-                        self._height,
-                    ),
-                ),
+        pipeline_parameters = PipelineParameters(
+            width=self._width,
+            height=self._height,
+            steps=[
                 (
                     StepParameters(
                         name="clean",
@@ -147,17 +156,10 @@ class Cleaner:
                     self._clean_tile,
                 ),
             ],
-            union_function=generate_union_ndarray(
-                self._output_file,
-                self._profile,
-                self._width,
-                self._height,
-            ),
-            pipeline_parameters=PipelineParameters(
-                width=self._width,
-                height=self._height,
-                tile_size=self._tile_size,
-                debug=self._debug,
-            )
+            union_function=self._union,
+            tile_size=self._tile_size,
+            debug=self._debug,
+            independent=True,
         )
-        pipeline.run()
+        config = create_config(pipeline_parameters)
+        pipe(pipeline_parameters, config)
