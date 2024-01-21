@@ -73,6 +73,7 @@ class TileStore:
                     height=pp.tile_size,
                 )
                 tile = self.get_tile(step_parameters, tile_parameters)
+                assert tile is not None
 
                 tile_width = tile.shape[0]
                 tile_height = tile.shape[1]
@@ -332,3 +333,24 @@ class TileDisk(TileStore):
             raise Exception(
                 f"Unsupported data type: {str(step_parameters.data_type)}"
             )
+
+
+def create_tile_store(
+    pipeline_parameters: PipelineParameters,
+    config: Config,
+) -> TileStore:
+    tile_store: TileStore
+    match config.store:
+        case Store.Memory:
+            tile_store = TileMemory(
+                config,
+                pipeline_parameters,
+            )
+        case Store.Disk:
+            tile_store = TileDisk(
+                config,
+                pipeline_parameters,
+            )
+        case _:
+            raise Exception(f"Store {config.store} is not supported.")
+    return tile_store
