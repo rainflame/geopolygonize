@@ -61,9 +61,7 @@ class StepParameters:
 
 @dataclass
 class PipelineParameters:
-    endx: int
-    endy: int
-    startx: int = 0
-    starty: int = 0
-    tile_size: int = 100
+    width: int
+    height: int
+    tile_size: int = 1000
     debug: bool = False

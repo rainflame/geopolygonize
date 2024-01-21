@@ -44,9 +44,9 @@ class Pipeline:
             # The data cannot be fully stored in memory
             # so we store it on disk instead.
             num_units = (
-                self.pipeline_parameters.endx - self.pipeline_parameters.startx
+                self.pipeline_parameters.width
             ) * (
-                self.pipeline_parameters.endy - self.pipeline_parameters.starty
+                self.pipeline_parameters.height
             ) * (
                 len(self.all_step_parameters)
             )

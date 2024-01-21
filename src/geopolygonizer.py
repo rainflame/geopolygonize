@@ -248,8 +248,8 @@ class GeoPolygonizer:
                 self._label_name,
             ),
             pipeline_parameters=PipelineParameters(
-                endx=self._width,
-                endy=self._height,
+                width=self._width,
+                height=self._height,
                 tile_size=self._tile_size,
                 debug=self._debug,
             )

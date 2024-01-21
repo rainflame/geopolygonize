@@ -130,8 +130,8 @@ class Step:
         pp = self.pipeline_parameters
         all_tile_parameters = [
             TileParameters(x, y, pp.tile_size, pp.tile_size)
-            for x in range(pp.startx, pp.endx, pp.tile_size)
-            for y in range(pp.starty, pp.endy, pp.tile_size)
+            for x in range(0, pp.width, pp.tile_size)
+            for y in range(0, pp.height, pp.tile_size)
         ]
         return all_tile_parameters
 

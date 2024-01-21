@@ -54,13 +54,13 @@ class TileStore:
         region_end_x = region_parameters.start_x + region_parameters.width
         region_end_y = region_parameters.start_y + region_parameters.height
 
-        for start_x in range(pp.startx, pp.endx, pp.tile_size):
+        for start_x in range(0, pp.width, pp.tile_size):
             if start_x + pp.tile_size < region_start_x:
                 continue
             if start_x >= region_end_x:
                 break
 
-            for start_y in range(pp.starty, pp.endy, pp.tile_size):
+            for start_y in range(0, pp.height, pp.tile_size):
                 if start_y + pp.tile_size < region_start_y:
                     continue
                 if start_y >= region_end_y:
