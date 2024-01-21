@@ -155,7 +155,7 @@ class Step:
             )
         except CleanExit:
             print(f"[{os.getpid()}] clean exit")
-            pass
+            raise CleanExit()
         except Exception as e:
             step_helper.handle_exception(e, tile_parameters)
 

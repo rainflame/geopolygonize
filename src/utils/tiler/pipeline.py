@@ -80,45 +80,46 @@ class Pipeline:
                 raise Exception(f"Store {config.store} is not supported.")
 
     def run(self) -> None:
-        prev_step_parameters = None
-        for i, (curr_step_parameters, curr_step_function)\
-                in enumerate(self.all_step_parameters):
+        try:
+            prev_step_parameters = None
+            for i, (curr_step_parameters, curr_step_function)\
+                    in enumerate(self.all_step_parameters):
+                step_helper = StepHelper(
+                    self.config,
+                    self.tile_store,
+                    curr_step_parameters,
+                    prev_step_parameters,
+                )
+
+                step = Step(
+                    self.config,
+                    self.pipeline_parameters,
+                    curr_step_parameters,
+                    curr_step_function,
+                    step_helper,
+                )
+                step.process()
+
+                prev_step_parameters = curr_step_parameters
+
             step_helper = StepHelper(
                 self.config,
                 self.tile_store,
-                curr_step_parameters,
+                None,
                 prev_step_parameters,
             )
+            try:
+                self.union_function(step_helper.get_prev_tiles)
+            except Exception as e:
+                step_helper.handle_exception(e, None)
 
-            step = Step(
-                self.config,
-                self.pipeline_parameters,
-                curr_step_parameters,
-                curr_step_function,
-                step_helper,
-            )
-            step.process()
-
-            prev_step_parameters = curr_step_parameters
-
-        step_helper = StepHelper(
-            self.config,
-            self.tile_store,
-            None,
-            prev_step_parameters,
-        )
-        try:
-            self.union_function(step_helper.get_prev_tiles)
+            if self.config.store == Store.Disk:
+                if not self.config.disk_config.keep:
+                    work_dir = self.config.disk_config.work_dir
+                    print(
+                        f"Removing working directory: {work_dir}"
+                    )
+                    shutil.rmtree(work_dir)
         except CleanExit:
             print(f"[{os.getpid()}] clean exit")
-            pass
-        except Exception as e:
-            step_helper.handle_exception(e, None)
-
-        if self.config.store == Store.Disk:
-            if not self.config.disk_config.keep:
-                work_dir = self.config.disk_config.work_dir
-                print(
-                    f"Removing working directory: {work_dir}"
-                )
-                shutil.rmtree(work_dir)
+            return
