@@ -45,7 +45,8 @@ pip install -r requirements.txt
 Then, run the CLI:
 
 ```
-python -m src.geopolygonize --input-file="data/input.tif" --output-file="data/output.shp"
+python -m src.clean --input-file="data/input.tif" --output-file="data/cleaned.tif"
+python -m src.geopolygonize --input-file="data/cleaned.tif" --output-file="data/output.shp"
 ```
 
 Test against some existing input:
