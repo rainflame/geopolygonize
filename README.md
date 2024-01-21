@@ -36,6 +36,8 @@ Refer to the [docs](https://rainflame.github.io/geopolygonize).
 
 ## Development
 
+This package requires the use of Python 3.10 or above.
+
 Install the dependencies:
 
 ```
