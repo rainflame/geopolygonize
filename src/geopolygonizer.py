@@ -1,25 +1,18 @@
 from dataclasses import dataclass
-from tqdm import tqdm
-from typing import Any, Callable, Dict, Iterator, List
+from typing import Any, Callable, Dict, List
 
 from affine import Affine
-import dask.dataframe as dd
-import dask_geopandas as dgpd
 import geopandas as gpd
 import numpy as np
 import rasterio
-from rasterio import DatasetReader
 from rasterio.crs import CRS
 from rasterio.features import shapes
-from rasterio.windows import Window
 from shapely.affinity import translate
 from shapely.geometry import shape, LineString, Polygon
 import warnings
 
-from .blobifier import Blobifier
 from .segmenter.segmenter import Segmenter
 from .utils import checkers
-from .utils.io import to_file
 from .utils.smoothing import chaikins_corner_cutting
 from .utils.tiler import (
     Pipeline,
@@ -27,12 +20,14 @@ from .utils.tiler import (
     TileData,
     StepParameters,
     TileParameters,
+    get_dims,
+    generate_input_tile_from_ndarray,
+    generate_union_gdf,
 )
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
 _EPSILON = 1.0e-10
-_CHUNKSIZE = int(1e4)
 
 
 @dataclass
@@ -45,8 +40,6 @@ class GeoPolygonizerParams:
     """Output gpkg file path"""
     label_name: str = 'label'
     """The name of the attribute each pixel value represents."""
-    min_blob_size: int = 5
-    """The mininum number of pixels a blob can have and not be filtered out."""
     pixel_size: int = 0
     """
     Override on the size of each pixel in units of the
@@ -85,12 +78,6 @@ class GeoPolygonizer:
         self._label_name = params.label_name
 
         checkers.check_is_non_negative(
-            "--min-blob-size",
-            params.min_blob_size
-        )
-        self._min_blob_size = params.min_blob_size
-
-        checkers.check_is_non_negative(
             "--pixel-size",
             params.pixel_size
         )
@@ -118,7 +105,8 @@ class GeoPolygonizer:
             self._meta: Dict[str, Any] = src.meta
             self._crs: CRS = self._meta['crs']
             self._transform: Affine = src.transform
-            self._set_dims(src)
+            width, height = get_dims(src)
+            self._width, self._height = width, height
 
             if params.pixel_size == 0:
                 # assume pixel is square
@@ -132,90 +120,6 @@ class GeoPolygonizer:
                 self._pixel_size = pixel_size
 
         self._debug = params.debug
-
-    def _set_dims(self, src: DatasetReader) -> None:
-        width = 0
-        height = 0
-        for _i, window in src.block_windows(1):
-            # Window treats x as cols and y as rows,
-            # whereas we treat x as rows and y as cols.
-            x_end = window.row_off + window.height
-            y_end = window.col_off + window.width
-            if x_end > width:
-                width = x_end
-            if y_end > height:
-                height = y_end
-        self._width: int = width
-        self._height: int = height
-
-    def _input_tile(
-        self,
-        tile_parameters: TileParameters,
-        _get_prev_tile: Callable[[TileParameters], TileData],
-        _get_prev_region: Callable[[TileParameters], TileData],
-        save_curr_tile: Callable[[TileParameters, TileData], None],
-    ) -> None:
-        bx0 = max(tile_parameters.start_x, 0)
-        by0 = max(tile_parameters.start_y, 0)
-        bx1 = min(
-            tile_parameters.start_x+tile_parameters.width,
-            self._width
-        )
-        by1 = min(
-            tile_parameters.start_y+tile_parameters.height,
-            self._height
-        )
-        with rasterio.open(self._input_file) as src:
-            # Window treats x as cols and y as rows,
-            # whereas we treat x as rows and y as cols.
-            tile = src.read(1, window=Window(by0, bx0, by1-by0, bx1-bx0))
-            save_curr_tile(tile_parameters, tile)
-
-    def _clean_tile(
-        self,
-        tile_parameters: TileParameters,
-        _get_prev_tile: Callable[[TileParameters], TileData],
-        get_prev_region: Callable[[TileParameters], TileData],
-        save_curr_tile: Callable[[TileParameters, TileData], None],
-    ) -> None:
-        buffer = self._min_blob_size - 1
-        bx0 = max(tile_parameters.start_x-buffer, 0)
-        by0 = max(tile_parameters.start_y-buffer, 0)
-        bx1 = min(
-            tile_parameters.start_x+tile_parameters.width+buffer,
-            self._width
-        )
-        by1 = min(
-            tile_parameters.start_y+tile_parameters.height+buffer,
-            self._height
-        )
-        region_parameters = TileParameters(
-            start_x=bx0,
-            start_y=by0,
-            width=bx1-bx0,
-            height=by1-by0,
-        )
-        if region_parameters.width <= 0 or region_parameters.height <= 0:
-            return
-        buffered_region = get_prev_region(region_parameters)
-        if buffered_region is None:
-            return
-
-        blobifier = Blobifier(buffered_region, self._min_blob_size)
-        cleaned = blobifier.blobify()
-
-        rel_start_x = tile_parameters.start_x - region_parameters.start_x
-        rel_start_y = tile_parameters.start_y - region_parameters.start_y
-        rel_end_x = min(
-            rel_start_x + tile_parameters.width,
-            region_parameters.start_x + region_parameters.width
-        )
-        rel_end_y = min(
-            rel_start_y + tile_parameters.height,
-            region_parameters.start_y + region_parameters.height
-        )
-        tile = cleaned[rel_start_x:rel_end_x, rel_start_y:rel_end_y]
-        save_curr_tile(tile_parameters, tile)
 
     def _polygonize_tile(
         self,
@@ -306,49 +210,6 @@ class GeoPolygonizer:
         gdf.crs = self._crs
         save_curr_tile(tile_parameters, gdf)
 
-    def _stitch(
-        self,
-        get_prev_tiles: Callable[[], Iterator[TileData]],
-    ) -> gpd.GeoDataFrame:
-        union_dgdf = dgpd.from_geopandas(
-            gpd.GeoDataFrame(),
-            chunksize=_CHUNKSIZE
-        )
-        for prev_tile in tqdm(
-            get_prev_tiles(),
-            desc="Stitching gpkg files",
-        ):
-            assert isinstance(prev_tile, gpd.GeoDataFrame)
-            dgdf = dgpd.from_geopandas(prev_tile, npartitions=1)
-            union_dgdf = dd.concat([union_dgdf, dgdf])
-
-        # Dask recommends using split_out = 1
-        # to use sort=True, which allows for determinism,
-        # and because split_out > 1  may not work
-        # with newer versions of Dask.
-        # However, this will require all the data
-        # to fit on the memory, which is not always possible.
-        # Unfortunately, the lack of determinism
-        # means that sometimes the dissolve outputs
-        # a suboptimal join of the polygons.
-        # This should be remedied with a rerun on the
-        # same tile directory.
-        #
-        # https://dask-geopandas.readthedocs.io/en/stable/guide/dissolve.html
-        num_rows = len(union_dgdf.index)
-        partitions = num_rows // _CHUNKSIZE + 1
-        print(
-            f"# ROWS: {num_rows}"
-            f"\tCHUNKSIZE: {_CHUNKSIZE}"
-            f"\t# PARTITIONS: {partitions}"
-        )
-        union_dgdf = union_dgdf.dissolve(
-            self._label_name,
-            split_out=partitions
-            #sort=True,
-        )
-        to_file(union_dgdf, self._output_file)
-
     def geopolygonize(self) -> None:
         """
         Geopolygonize input to get output.
@@ -361,14 +222,11 @@ class GeoPolygonizer:
                         name="input",
                         data_type=np.ndarray,
                     ),
-                    self._input_tile,
-                ),
-                (
-                    StepParameters(
-                        name="clean",
-                        data_type=np.ndarray,
+                    generate_input_tile_from_ndarray(
+                        self._input_file,
+                        self._width,
+                        self._height,
                     ),
-                    self._clean_tile,
                 ),
                 (
                     StepParameters(
@@ -385,7 +243,10 @@ class GeoPolygonizer:
                     self._vectorize_tile,
                 ),
             ],
-            union_function=self._stitch,
+            union_function=generate_union_gdf(
+                self._output_file,
+                self._label_name,
+            ),
             pipeline_parameters=PipelineParameters(
                 endx=self._width,
                 endy=self._height,
