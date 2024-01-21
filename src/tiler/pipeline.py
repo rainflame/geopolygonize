@@ -82,9 +82,9 @@ class Pipeline:
     def _generate_tiles(self) -> List[TileParameters]:
         pp = self.pipeline_parameters
         all_tile_parameters = [
-            TileParameters(x, y, pp.tile_size, pp.tile_size)
-            for x in range(0, pp.width, pp.tile_size)
-            for y in range(0, pp.height, pp.tile_size)
+            TileParameters(x, y, self.config.tile_size, self.config.tile_size)
+            for x in range(0, pp.width, self.config.tile_size)
+            for y in range(0, pp.height, self.config.tile_size)
         ]
         return all_tile_parameters
 

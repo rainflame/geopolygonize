@@ -28,12 +28,6 @@ from .utils.clean_exit import kill_self
          "filtered out.",
 )
 @click.option(
-    '--tile-size',
-    default=1000,
-    type=int,
-    help="Tile size in pixels",
-)
-@click.option(
     '--debug',
     is_flag=True,
     help="enable debug mode"
@@ -42,7 +36,6 @@ def cli(
     input_file,
     output_file,
     min_blob_size,
-    tile_size,
     debug,
 ):
     try:
@@ -50,7 +43,6 @@ def cli(
             input_file=input_file,
             output_file=output_file,
             min_blob_size=min_blob_size,
-            tile_size=tile_size,
             debug=debug,
         )
         Cleaner(params).clean()

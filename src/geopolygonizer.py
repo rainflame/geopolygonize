@@ -50,8 +50,6 @@ class GeoPolygonizerParams:
     """The amount of simplification applied relative to the pixel size."""
     smoothing_iterations: int = 0
     """The number of iterations of smoothing to run on the output polygons."""
-    tile_size: int = 1000
-    """Tile size in pixels"""
     debug: bool = False
     """enable debug mode"""
 
@@ -95,12 +93,6 @@ class GeoPolygonizer:
             params.smoothing_iterations
         )
         self._smoothing_iterations = params.smoothing_iterations
-
-        checkers.check_is_positive(
-            "--tile-size",
-            params.tile_size
-        )
-        self._tile_size = params.tile_size
 
         with rasterio.open(params.input_file) as src:
             self._meta: Dict[str, Any] = src.meta
@@ -268,7 +260,6 @@ class GeoPolygonizer:
                 ),
             ],
             union_function=self._union,
-            tile_size=self._tile_size,
             debug=self._debug,
             independent=True,
         )

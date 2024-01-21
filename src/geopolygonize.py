@@ -48,12 +48,6 @@ from .utils.clean_exit import kill_self
          "output polygons.",
 )
 @click.option(
-    '--tile-size',
-    default=1000,
-    type=int,
-    help="Tile size in pixels",
-)
-@click.option(
     '--debug',
     is_flag=True,
     help="enable debug mode"
@@ -65,7 +59,6 @@ def cli(
     simplification_pixel_window,
     smoothing_iterations,
     label_name,
-    tile_size,
     debug,
 ):
     try:
@@ -76,7 +69,6 @@ def cli(
             pixel_size=pixel_size,
             simplification_pixel_window=simplification_pixel_window,
             smoothing_iterations=smoothing_iterations,
-            tile_size=tile_size,
             debug=debug,
         )
         GeoPolygonizer(params).geopolygonize()

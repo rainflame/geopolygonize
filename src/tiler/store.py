@@ -45,6 +45,7 @@ class TileStore:
             )
 
         pp = self.pipeline_parameters
+        config = self.config
 
         data = np.zeros(
             (region_parameters.width, region_parameters.height)
@@ -54,14 +55,14 @@ class TileStore:
         region_end_x = region_parameters.start_x + region_parameters.width
         region_end_y = region_parameters.start_y + region_parameters.height
 
-        for start_x in range(0, pp.width, pp.tile_size):
-            if start_x + pp.tile_size < region_start_x:
+        for start_x in range(0, pp.width, config.tile_size):
+            if start_x + config.tile_size < region_start_x:
                 continue
             if start_x >= region_end_x:
                 break
 
-            for start_y in range(0, pp.height, pp.tile_size):
-                if start_y + pp.tile_size < region_start_y:
+            for start_y in range(0, pp.height, config.tile_size):
+                if start_y + config.tile_size < region_start_y:
                     continue
                 if start_y >= region_end_y:
                     break
@@ -69,8 +70,8 @@ class TileStore:
                 tile_parameters = TileParameters(
                     start_x=start_x,
                     start_y=start_y,
-                    width=pp.tile_size,
-                    height=pp.tile_size,
+                    width=config.tile_size,
+                    height=config.tile_size,
                 )
                 tile = self.get_tile(step_parameters, tile_parameters)
                 assert tile is not None

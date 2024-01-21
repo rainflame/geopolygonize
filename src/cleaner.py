@@ -32,8 +32,6 @@ class CleanerParams:
     """Output gpkg file path"""
     min_blob_size: int = 5
     """The mininum number of pixels a blob can have and not be filtered out."""
-    tile_size: int = 1000
-    """Tile size in pixels"""
     debug: bool = False
     """enable debug mode"""
 
@@ -62,12 +60,6 @@ class Cleaner:
             params.min_blob_size
         )
         self._min_blob_size = params.min_blob_size
-
-        checkers.check_is_positive(
-            "--tile-size",
-            params.tile_size
-        )
-        self._tile_size = params.tile_size
 
         with rasterio.open(params.input_file) as src:
             self._profile = src.profile.copy()
@@ -157,7 +149,6 @@ class Cleaner:
                 ),
             ],
             union_function=self._union,
-            tile_size=self._tile_size,
             debug=self._debug,
             independent=True,
         )

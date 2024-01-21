@@ -65,7 +65,6 @@ class PipelineParameters:
     height: int
     steps: List[Tuple[StepParameters, StepFunction]]
     union_function: UnionFunction
-    tile_size: int = 1000
     debug: bool = False
     # True when all steps only depend on former tile, i.e. only
     # use get_prev_tile and not get_prev_region.
