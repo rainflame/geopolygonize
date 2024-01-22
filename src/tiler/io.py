@@ -136,8 +136,8 @@ def generate_union_gdf(
         )
         union_dgdf = union_dgdf.dissolve(
             label_name,
-            split_out=partitions
-            #sort=True,
+            split_out=partitions,
+            sort=False,
         )
         to_file(union_dgdf, output_path)
     return union_gdf
