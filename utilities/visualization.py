@@ -1,8 +1,9 @@
 import random
 import numpy as np
 
+from matplotlib.path import Path
 from matplotlib.collections import PatchCollection
-from matplotlib.patches import Polygon as PolygonPatch
+from matplotlib.patches import PathPatch
 import matplotlib.pyplot as plt
 import matplotlib.colors as mcolors
 
@@ -65,16 +66,26 @@ def show_polygons(polygons, show=True, labels=None, color_map=None):
             for p in list(polygon.geoms):
                 ps.append(p)
 
-        patches = []
         for p in ps:
-            x, y = p.exterior.xy
-            patch = PolygonPatch(list(zip(x, y)), closed=True)
-            patches.append(patch)
-        collection = PatchCollection(patches, alpha=0.3)
-        collection.set_color(color)
-        collection.set_edgecolor("black")
-        ax.add_collection(collection)
- 
+            vertices = []
+            codes = []
+            exterior_vertices = list(p.exterior.coords)
+            vertices.extend(exterior_vertices)
+            exterior_codes = [Path.MOVETO] \
+                + [Path.LINETO] * (len(exterior_vertices) - 1)
+            codes.extend(exterior_codes)
+
+            for interior in p.interiors:
+                interior_vertices = list(interior.coords)[::-1]
+                vertices.extend(interior_vertices)
+                interior_codes = [Path.MOVETO] \
+                    + [Path.LINETO] * (len(interior_vertices) - 1)
+                codes.extend(interior_codes)
+        
+            path = Path(vertices, codes)
+            patch = PathPatch(path, facecolor=color, alpha=0.3)
+            ax.add_patch(patch)
+
     plt.axis('equal')
     if show:
         plt.show()
