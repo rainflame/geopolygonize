@@ -7,7 +7,7 @@ and potentially parallelization.
 import os
 import shutil
 import traceback
-from typing import Iterator, List, Tuple
+from typing import Iterator, List, Tuple, Union
 
 import multiprocessing as mp
 from tqdm import tqdm
@@ -52,7 +52,6 @@ def _step_function_wrapper(args: Tuple[
         )
     except CleanExit:
         print(f"[{os.getpid()}] clean exit")
-        raise CleanExit()
     except Exception as e:
         pid = os.getpid()
         step_message = f" in {step_parameters.name}"
@@ -101,6 +100,8 @@ class Pipeline:
         with open(filepath, 'w') as file:
             file.write(message)
 
+        kill_children()
+
     def run(self) -> None:
         pass
 
@@ -131,7 +132,7 @@ class TilePipeline(Pipeline):
         Config,
         PipelineParameters,
         TileParameters,
-    ]) -> Tuple[TileParameters, TileData]:
+    ]) -> Tuple[TileParameters, Union[TileData, None]]:
         config, pipeline_parameters, tile_parameters = args
         try:
             tile_store = create_tile_store(pipeline_parameters, config)
@@ -165,7 +166,22 @@ class TilePipeline(Pipeline):
             return tile_parameters, tile
         except CleanExit:
             print(f"[{os.getpid()}] clean exit")
-            raise CleanExit()
+            return tile_parameters, None
+        except Exception as e:
+            pid = os.getpid()
+            tile_message =\
+                f" at ({tile_parameters.start_x}, {tile_parameters.start_y})"
+            stack_trace = "".join(traceback.format_tb(e.__traceback__))
+            message = \
+                f"[{pid}] Exception{tile_message}:" \
+                f"\n{stack_trace}\n{e}\n"
+
+            filepath = os.path.join(
+                config.log_dir, f"log-{pid}"
+            )
+            with open(filepath, 'w') as file:
+                file.write(message)
+            return tile_parameters, None
 
     def _parallel_process_tiles(
         self,
@@ -183,6 +199,8 @@ class TilePipeline(Pipeline):
             total=len(all_args),
             desc="Processing tiles"
         ):
+            if tile is None:
+                continue
             yield tile_parameters, tile
 
         pool.close()
@@ -197,7 +215,6 @@ class TilePipeline(Pipeline):
             self.pipeline_parameters.union_function(generate)
         except Exception as e:
             self._handle_exception(e)
-            kill_children()
 
 
 class StepPipeline(Pipeline):
@@ -310,7 +327,6 @@ class StepPipeline(Pipeline):
             self.pipeline_parameters.union_function(step_helper.get_prev_tiles)
         except Exception as e:
             self._handle_exception(e)
-            kill_children()
 
 
 def pipe(pipeline_parameters: PipelineParameters, config: Config) -> None:
@@ -325,4 +341,3 @@ def pipe(pipeline_parameters: PipelineParameters, config: Config) -> None:
         pipeline.cleanup()
     except CleanExit:
         print(f"[{os.getpid()}] clean exit")
-        return

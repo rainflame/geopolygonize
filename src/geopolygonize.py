@@ -73,7 +73,9 @@ def cli(
         )
         GeoPolygonizer(params).geopolygonize()
     except Exception as e:
-        print(f"geopolygonize encountered error: {e}")
+        import traceback
+        stack_trace = "".join(traceback.format_tb(e.__traceback__))
+        print(f"geopolygonize encountered error: {stack_trace}")
         kill_self()
 
 
