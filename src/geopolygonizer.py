@@ -28,7 +28,7 @@ from .tiler import (
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 
-_EPSILON = 1.0e-10
+_EPSILON = 1.0e-3
 
 
 @dataclass
@@ -103,7 +103,8 @@ class GeoPolygonizer:
 
             if params.pixel_size == 0:
                 # assume pixel is square
-                assert abs(src.res[0] - src.res[1]) < _EPSILON
+                assert abs(src.res[0] - src.res[1]) \
+                    / min(src.res[0], src.res[1]) < _EPSILON
                 pixel_size = abs(src.res[0])
                 if pixel_size == 0:
                     raise RuntimeError(
