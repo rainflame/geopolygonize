@@ -38,6 +38,11 @@ Refer to the [docs](https://rainflame.github.io/geopolygonize).
 
 This package requires the use of Python 3.10 or above.
 
+Create a virtual environment:
+```
+python3.10 -m venv .venv
+```
+
 Install the dependencies:
 
 ```
@@ -58,3 +63,15 @@ Test against some existing input:
 ```
 
 Find test raster inputs [here](https://drive.google.com/drive/folders/1KiEPwjg9zhowBJEODQTJJ44VPrPkXC3_?usp=drive_link).
+
+Tests are under `tests/` and are Jupyter Notebooks.
+
+First install `jupyter` in the virtual environment:
+```
+pip install jupyter
+``` 
+
+Use the virtual environment's `jupyter` to access the tests:
+```
+.venv/bin/jupyter-lab
+```
