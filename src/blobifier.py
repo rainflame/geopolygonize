@@ -1,6 +1,12 @@
+from typing import Any, List
+
 import numpy as np
 from scipy import ndimage
 from scipy.stats import mode
+
+
+# Assumes that the input data will not use negative values.
+NULL_VALUE = -1
 
 
 class Blobifier:
@@ -8,9 +14,18 @@ class Blobifier:
         self,
         data: np.ndarray,
         min_blob_size: int = 5,
+        invalid_values: List[Any] = [],
     ) -> None:
         self.data = data
+        self.invalid_values = invalid_values
         self.min_blob_size = min_blob_size
+
+    def _mask_invalid_values(self) -> np.ndarray:
+        mask = np.zeros_like(self.data, dtype=bool)
+        for invalid_value in self.invalid_values:
+            per_value_mask = self.data == invalid_value
+            mask = np.logical_or(mask, per_value_mask)
+        return mask
 
     # Return a mask with True for pixels that are part of small blobs,
     # else False.
@@ -48,28 +63,33 @@ class Blobifier:
 
         def choose_value(x):
             center = x[4]
-            selection = x[x != -1]
-            if center == -1 and not selection.size == 0:
+            selection = x[x != NULL_VALUE]
+            if center == NULL_VALUE and not selection.size == 0:
                 m = mode(selection, axis=None).mode
                 return m
             else:
                 return center
 
         blob_raster = self.data.copy()
-        blob_raster[mask] = -1
-        while np.any(blob_raster == -1):
+        blob_raster[mask] = NULL_VALUE
+        while np.any(blob_raster == NULL_VALUE):
             result = ndimage.generic_filter(
                 blob_raster,
                 choose_value,
                 footprint=neighborhood,
                 mode="constant",
-                cval=0
+                cval=NULL_VALUE,
             )
             blob_raster = result
         return blob_raster
 
     def blobify(self):
+        invalid_values_mask = self._mask_invalid_values()
+
         blob_raster = self._identify_blobs()
         small_blob_mask = self._mask_small_blobs(blob_raster)
-        cleaned_raster = self._fill_blobs(small_blob_mask)
+
+        mask = np.logical_or(invalid_values_mask, small_blob_mask)
+
+        cleaned_raster = self._fill_blobs(mask)
         return cleaned_raster
