@@ -62,6 +62,8 @@ class Cleaner:
         self._min_blob_size = params.min_blob_size
 
         with rasterio.open(params.input_file) as src:
+            self._no_data = src.nodata
+            print(f"Filling no data pixels with values of {self._no_data}.")
             self._profile = src.profile.copy()
             width, height = get_dims(src)
             self._width, self._height = width, height
@@ -101,7 +103,11 @@ class Cleaner:
             buffered_region = \
                 src.read(1, window=Window(by0, bx0, by1-by0, bx1-bx0))
 
-        blobifier = Blobifier(buffered_region, self._min_blob_size)
+        blobifier = Blobifier(
+            buffered_region,
+            min_blob_size=self._min_blob_size,
+            invalid_values=[self._no_data],
+        )
         cleaned = blobifier.blobify()
 
         rel_start_x = tile_parameters.start_x - region_parameters.start_x
